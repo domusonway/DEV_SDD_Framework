@@ -1,67 +1,69 @@
----
-module: server
-id: M06
-version: 0.1.0
-status: locked
+# SPEC: server
+> 创建日期: 2026-03-03 | 状态: 确认
+
 ---
 
-# 模块规格：server
+## 模块职责
+HTTP 服务器主循环：监听端口，Accept 连接，分发请求给处理器。
 
-## 职责
-TCP 主循环：绑定端口，accept 连接，每个连接开一个 daemon 线程执行 handle_client。
+---
 
 ## 接口定义
 
 ```python
-import socket
+class HTTPServer:
+    def __init__(self, host: str = "0.0.0.0", port: int = 8080,
+                 htdocs_root: str = "htdocs"):
+        ...
 
-def handle_client(conn: socket.socket) -> None:
-    """
-    单个连接处理：parse → route → handler → close。
-    所有异常在此捕获，确保 conn.close() 在 finally 中执行。
-    """
+    def start(self) -> None:
+        """启动服务器，阻塞运行"""
 
-def startup(port: int = 4000) -> None:
-    """
-    绑定端口，SO_REUSEADDR，无限循环 accept 连接，
-    每个连接启动 Thread(target=handle_client, daemon=True)。
-    """
+    def stop(self) -> None:
+        """优雅关闭服务器"""
 ```
 
-## ⚠️ 本模块强制规则
+---
 
-- `conn.close()` 必须在 **finally** 块中（保证连接释放）
-- `recv` 相关调用：`except (socket.timeout, ConnectionResetError, OSError)`
-- `startup` 的 server socket：`SO_REUSEADDR` 必须设置（避免 TIME_WAIT 阻塞测试）
-- Thread 必须设置 `daemon=True`（主线程退出时不阻塞）
+## 行为规格
 
-## handle_client 流程
+### 启动
+- 创建 TCP socket，设置 SO_REUSEADDR
+- bind + listen(10)
+- 每个连接启动新线程（threading.Thread）处理
 
-```python
-def handle_client(conn: socket.socket) -> None:
-    try:
-        request = parse_request(conn)        # M02
-        handler = route(request)             # M03
-        handler(conn, request)               # M04 or M05
-    except Exception as e:
-        # 解析失败发 400
-        try:
-            conn.sendall(bad_request())
-        except OSError:
-            pass
-    finally:
-        conn.close()                         # 必须在 finally
+### 请求处理流程（每线程）
+```
+1. parse_request(conn) → request
+2. route(request["path"], htdocs_root) → handler_type
+3. if handler_type == "static": handle_static(...)
+   if handler_type == "cgi":    handle_cgi(...)
+   if handler_type == "not_found": build_response(404, ...)
+4. conn.sendall(response_bytes)
+5. conn.close()
 ```
 
-## 测试要点
+### 异常处理
+- recv 异常：`except (socket.timeout, ConnectionResetError, OSError)` → 关闭连接（MEM_F_C_004）
+- 未预期异常：记录日志，返回 500，关闭连接
 
-- `handle_client`：正常 GET 请求 → 调用 static_handler（可用 socketpair 测试）
-- `handle_client`：异常请求 → 发送 400 响应，不抛出
-- `startup`：`SO_REUSEADDR` 已设置
-- 多并发连接不互相阻塞（daemon Thread）
+### 关闭
+- 停止 Accept 新连接
+- 等待当前处理线程完成（超时 5 秒）
+- 关闭 server socket
+
+---
+
+## 接口表
+
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| host | **str** | "0.0.0.0" | 监听地址 |
+| port | **int** | 8080 | 监听端口 |
+| htdocs_root | **str** | "htdocs" | 静态文件根目录 |
+
+---
 
 ## 依赖
-
-- 依赖模块：M02(parse_request), M03(route), M01(bad_request)
-- 被依赖于：无（顶层模块）
-- 标准库：socket, threading
+- 依赖: request_parser, response, router, static_handler, cgi_handler
+- 依赖: socket, threading（stdlib）

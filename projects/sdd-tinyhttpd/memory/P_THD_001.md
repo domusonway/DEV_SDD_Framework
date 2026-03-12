@@ -1,31 +1,35 @@
 ---
 id: P_THD_001
-title: CGI 必须先验证可执行性再发状态行
 project: sdd-tinyhttpd
+title: socket.sendall() 收到 str 而非 bytes → TypeError
+severity: BUG_FIX
 created: 2026-03-03
+promoted_to_framework: MEM_F_C_002（SPEC dtype 要求）
 ---
 
-## 现象
-E2E 测试中，请求不存在的 CGI 路径时，客户端收到：
+## 症状
 ```
-HTTP/1.0 200 OK
-...（随后再收到）
-HTTP/1.0 500 INTERNAL SERVER ERROR
+TypeError: a bytes-like object is required, not 'str'
+  File "modules/server/server.py", line 42, in handle_request
+    conn.sendall(response)
 ```
-头部混乱，客户端无法解析响应。
 
 ## 根因
-直接移植 C 版逻辑：先 `send("HTTP/1.0 200 OK\r\n")`，fork 失败后再 send 500。
-Python 版用 Popen，异常在 200 发出之后才触发。
+`response` 模块的 `build_response()` 返回 `str`，而 `socket.sendall()` 只接受 `bytes`。
+SPEC 未明确返回类型（只写了"返回响应内容"），导致实现者返回了 str。
 
 ## 修复
 ```python
-# 先检查，后发状态行
-if not os.path.isfile(path) or not os.access(path, os.X_OK):
-    conn.sendall(response.cannot_execute())
-    return
-conn.sendall(b"HTTP/1.0 200 OK\r\n")  # 只有验证通过才发
+# ❌ 修复前
+def build_response(status, headers, body):
+    return f"HTTP/1.0 {status}\r\n..." + body
+
+# ✅ 修复后
+def build_response(status: int, headers: dict, body: bytes) -> bytes:
+    header_str = f"HTTP/1.0 {status} OK\r\n..."
+    return header_str.encode("utf-8") + body
 ```
 
-## 已升级为框架 Memory
-→ framework/memory/domains/http/MEM_D_HTTP_004.md
+## 预防
+SPEC 接口表必须明确 dtype：`| 返回值 | bytes | HTTP 完整响应 |`
+→ 已提升为框架 MEM_F_C_002

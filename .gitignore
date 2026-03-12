@@ -1,0 +1,34 @@
+# DEV SDD Framework .gitignore
+
+# 真实项目 repo 不纳入框架版本管理（在 projects/ 下独立 git clone）
+projects/*
+!projects/.gitkeep
+!projects/_template/
+!projects/_template/**
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# 测试报告（本地生成，不提交）
+skill-tests/reports/*.json
+skill-tests/reports/*.html
+
+# 编辑器
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# 环境
+.env
+.venv/
+venv/

@@ -1,66 +1,75 @@
 # SKILL: memory-update
-# 触发：模块/项目完成后，或发现新的重要模式时
-# 目的：将本次经验结构化写入 Memory，让下一个项目自动受益
+> 任务：项目完成后沉淀有价值的记忆，保持记忆库精简高效
 
-## 判断是否值得写入
+---
 
-写入条件（满足任意一条）：
-- 遇到了一个之前 Memory 没有记录的 Bug 类型
-- 找到了某类问题的更好解决模式
-- 发现了某个假设是错的（反面教材同样有价值）
-- 某个技术决策（如 RLock vs Lock）有明确的理由
+## 触发时机
+所有模块 GREEN + VALIDATE 通过后，项目交付前执行。
 
-**不要写入**：
-- 太具体到单个项目的细节（放项目记忆，不放框架记忆）
-- 已有 Memory 记录覆盖的重复内容
-- 还不确定是否普适的单次观察
+---
 
-## 写入格式
+## 记忆沉淀流程
+
+### Step 1: 收集候选记忆
+回顾本项目中：
+- 遇到过哪些 Bug？（特别是 RED > 2 次的）
+- 有哪些设计决策值得记录？
+- 有哪些 SPEC 不清晰导致返工的地方？
+- 有哪些工具/方法特别有效？
+
+### Step 2: 判断记忆归属
+
+```
+此经验是否适用于其他项目？
+    │
+    ├─ 仅适用于本项目技术栈/需求 → 写入 projects/<n>/memory/
+    │
+    ├─ 可能适用但未验证 → 写入 projects/<n>/memory/（标注待验证）
+    │
+    └─ 跨项目验证（≥3个项目）→ 升级写入 memory/（框架记忆）
+```
+
+### Step 3: 写项目记忆文件
+
+格式：`projects/<n>/memory/P_<项目缩写>_<序号>.md`
 
 ```markdown
 ---
-id: MEM_F_C_XXX          # 框架级CRITICAL: MEM_F_C_
-                          # 框架级IMPORTANT: MEM_F_I_
-                          # 领域级: MEM_D_[领域]_
-                          # 项目级: MEM_P_[项目]_
-title: [一句话标题，说清楚是什么规则]
-tags:
-  domain: [networking / storage / parsing / general]
-  lang_stack: python
-  task_type: [tdd_impl / spec_writing / debugging / network_code]
-  severity: CRITICAL / IMPORTANT / INFO
+id: P_XXX_001
+title: [一句话总结，即为规则]
+severity: BUG_FIX | DESIGN | PATTERN
 created: YYYY-MM-DD
-validated_by: [验证来源，如"mini-redis对照实验"]
-expires: never / YYYY-MM-DD
-confidence: high / medium / low
 ---
 
-## 经验
-[核心规则，1–3句话，直接说结论]
+## 规则
+[清晰的一句话]
 
-## 原因
-[为什么，机制解释]
+## 背景
+[为什么会遇到这个问题]
 
 ## 反例 → 后果
-[错误写法] → [导致什么问题]
+[错误做法及其后果]
 
 ## 正例
-[正确写法，可含代码片段]
-
-## 适用范围
-[什么场景下这条规则适用]
+[正确做法，含代码示例]
 ```
 
-## 写入后更新 INDEX
+### Step 4: 更新项目 memory/INDEX.md
 
-在 `memory/INDEX.md` 对应表格中添加新记录行：
+在以下区域追加条目：
+- Bug 经验表（遇到的 Bug）
+- 设计决策表（架构选择原因）
 
-```markdown
-| MEM_F_C_XXX | [标题] | [适用场景] | framework/critical/MEM_F_C_XXX.md |
-```
+### Step 5: 检查框架记忆升级条件
 
-## 淘汰机制
+检查 memory/INDEX.md IMPORTANT 区：
+- 是否有新的跨项目模式需要添加？
+- 是否有旧条目已被证伪需要删除？
+- CRITICAL 区是否超过 7 条需要合并？
 
-- 每6个月审查一次 IMPORTANT 以下级别的记录
-- 3个项目都未命中的记录降级或删除
-- CRITICAL 级别需要明确反例才能删除
+---
+
+## 精简原则
+- 不写"我知道了"，写"下次遇到 XXX 场景做 YYY"
+- 标题即规则，不需要展开就能行动
+- 旧条目定期审查，无用的删除，不积累垃圾

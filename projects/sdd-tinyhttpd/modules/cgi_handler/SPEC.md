@@ -1,69 +1,65 @@
----
-module: cgi_handler
-id: M05
-version: 0.1.0
-status: locked
+# SPEC: cgi_handler
+> 创建日期: 2026-03-03 | 状态: 确认
+
 ---
 
-# 模块规格：cgi_handler
+## 模块职责
+执行 CGI 脚本，返回脚本输出封装的 HTTP 响应。
 
-## 职责
-验证 CGI 脚本可执行性，设置环境变量，执行脚本，转发 stdout 到 conn。
+---
 
 ## 接口定义
 
 ```python
-import socket
-from ..request_parser import Request
-
-def execute_cgi(conn: socket.socket, request: Request) -> None:
+def handle_cgi(path: str, request: dict, htdocs_root: str) -> bytes:
     """
-    1. 验证 htdocs/request.url 文件存在且可执行
-    2. 不可执行 → sendall(response.cannot_execute()) 并 return
-    3. 可执行 → sendall(b"HTTP/1.0 200 OK\r\n") 再执行
-    4. 用 subprocess.Popen 执行，stdin 传 POST body（如有）
-    5. stdout 直接 sendall 到 conn
+    执行 CGI 脚本，返回 HTTP 响应 bytes。
+
+    Returns:
+        bytes: HTTP 200（成功）或 HTTP 500（脚本失败）
     """
 ```
 
-## ⚠️ 本模块强制规则
+---
 
-- **先验证可执行性，再发状态行**（禁止先发 200 再检查）
-- 用 `subprocess.Popen`，**禁止** `os.fork()`（多线程环境）
-- POST body：先 `parse_content_length(conn)`，再 `drain_headers(conn)`，再 `conn.recv(content_length)`
-- sendall 参数必须是 **bytes**
+## 接口表
 
-## 环境变量设置
+| 方向 | 名称 | 类型 | 说明 |
+|------|------|------|------|
+| 输入 | path | **str** | CGI 脚本路径（含 /cgi-bin/） |
+| 输入 | request | **dict** | parse_request 返回的字典 |
+| 输入 | htdocs_root | **str** | htdocs 根目录 |
+| 输出 | 返回值 | **bytes** | 完整 HTTP 响应 |
 
-| 变量 | 值来源 |
-|------|--------|
-| REQUEST_METHOD | request.method |
-| QUERY_STRING | request.query_string |
-| CONTENT_LENGTH | str(content_length)（POST 时） |
-| SERVER_NAME | "localhost" |
+---
 
-## 行为约束
+## 行为规格
 
+### 正常执行
 ```
-if not os.path.isfile(path) or not os.access(path, os.X_OK):
-    conn.sendall(response.cannot_execute())
-    return
-
-conn.sendall(b"HTTP/1.0 200 OK\r\n")
-proc = subprocess.Popen(...)
-stdout, _ = proc.communicate(input=body)
-conn.sendall(stdout)
+执行 htdocs_root + path 对应的脚本
+设置 CGI 环境变量（MEM_D_HTTP_004）
+返回: HTTP/1.0 200 OK + 脚本 stdout
 ```
 
-## 测试要点
+### 脚本不存在
+```
+返回: HTTP/1.0 404 Not Found
+```
 
-- 不存在文件：发送 500 响应，不发 200
-- 不可执行文件：发送 500，不执行
-- GET 请求：QUERY_STRING 设置正确，stdin 为空
-- POST 请求：body 正确传给 stdin，CONTENT_LENGTH 正确
+### 脚本执行失败（returncode != 0）
+```
+返回: HTTP/1.0 500 Internal Server Error
+```
+
+### 超时（>10秒）
+```
+kill 脚本进程
+返回: HTTP/1.0 500 Internal Server Error，body 含 "timeout"
+```
+
+---
 
 ## 依赖
-
-- 依赖模块：M01(response), M02(request_parser)
-- 被依赖于：M06(server)
-- 标准库：os, subprocess
+- 依赖: response 模块，subprocess，os
+- 被依赖: server

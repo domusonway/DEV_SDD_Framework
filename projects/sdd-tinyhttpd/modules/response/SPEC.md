@@ -1,85 +1,66 @@
----
-module: response
-id: M01
-version: 0.1.0
-status: locked
+# SPEC: response
+> 创建日期: 2026-03-03 | 状态: 确认
+
 ---
 
-# 模块规格：response
+## 模块职责
+构建符合 HTTP/1.0 规范的响应 bytes。
 
-## 职责
-构建标准 HTTP/1.0 响应字节序列（状态行 + 头部 + body）。
+---
 
 ## 接口定义
 
 ```python
 def build_response(
     status_code: int,
-    body: bytes = b"",
-    content_type: str = "text/html",
-    extra_headers: dict[str, str] | None = None,
+    body: bytes,
+    content_type: str = "text/html; charset=utf-8",
+    extra_headers: dict = None,
 ) -> bytes:
     """
-    返回完整 HTTP/1.0 响应 bytes。
-    调用方直接 conn.sendall(build_response(...))。
+    构建完整的 HTTP/1.0 响应。
+
+    Returns:
+        bytes: 完整 HTTP 响应，含状态行 + 头部 + 空行 + body
     """
-
-def not_found() -> bytes:
-    """返回标准 404 响应 bytes"""
-
-def bad_request() -> bytes:
-    """返回标准 400 响应 bytes"""
-
-def cannot_execute() -> bytes:
-    """返回标准 500 响应 bytes（CGI 无法执行时）"""
 ```
 
-## 输入/输出规格
+---
 
-| 参数 | 类型 | 约束 |
-|------|------|------|
-| status_code | int | 200 / 400 / 404 / 500 |
-| body | bytes | 默认 b""，调用方负责编码 |
-| content_type | str | MIME 字符串，默认 text/html |
-| extra_headers | dict[str,str] \| None | 附加头部，如 Content-Length |
+## 接口表
 
-| 返回值 | 类型 | 说明 |
-|--------|------|------|
-| response | **bytes** | 完整 HTTP 响应，全程 bytes，禁止混入 str |
+| 方向 | 名称 | 类型 | 说明 |
+|------|------|------|------|
+| 输入 | status_code | **int** | HTTP 状态码：200/404/500 等 |
+| 输入 | body | **bytes** | 响应体 |
+| 输入 | content_type | **str** | Content-Type 值，默认 text/html |
+| 输入 | extra_headers | **dict[str,str]** | 额外响应头，可选 |
+| 输出 | 返回值 | **bytes** | 完整 HTTP 响应（重要：必须是 bytes）|
 
-## ⚠️ 本模块强制规则
+---
 
-- 所有响应行以 `\r\n` 结尾，**不是** `\n`
-- 返回值必须是 `bytes`，调用方 `conn.sendall()` 不需要 encode
-- `Content-Length` 值必须是 `len(body)`（bytes 长度，非 str 长度）
+## 行为规格
 
-## 行为约束
-
+### 200 OK
 ```
-HTTP/1.0 {status_code} {status_text}\r\n
-Content-Type: {content_type}\r\n
-Content-Length: {len(body)}\r\n
-{extra_headers ...}\r\n
-\r\n
-{body}
+输入: status_code=200, body=b"<h1>Hello</h1>"
+输出: b"HTTP/1.0 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: 14\r\n\r\n<h1>Hello</h1>"
 ```
 
-状态码文本映射：
-- 200 → "OK"
-- 400 → "BAD REQUEST"  
-- 404 → "NOT FOUND"
-- 500 → "INTERNAL SERVER ERROR"
+### 404
+```
+输入: status_code=404, body=b"Not Found"
+输出含: b"HTTP/1.0 404 Not Found\r\n..."
+```
 
-## 测试要点
+### Content-Length 精确
+Content-Length 值 == len(body)，中文按 UTF-8 字节数计（MEM_D_HTTP_003）
 
-- `build_response(200, b"hello")` 包含 `b"HTTP/1.0 200 OK\r\n"`
-- 响应以 `b"\r\n\r\n"` 分隔头和 body
-- `Content-Length` 值等于 `len(body)`
-- `not_found()` 返回 bytes 且含 `b"404"`
-- 空 body 时 `Content-Length: 0`
+### CRLF 分隔
+所有头部行用 \r\n 分隔，头部结束用 \r\n\r\n（MEM_D_HTTP_002）
 
-## 依赖
+---
 
-- 依赖模块：无
-- 被依赖于：M04(static_handler), M05(cgi_handler)
-- 第三方库：无（标准库）
+## 依赖关系
+- 依赖: 无
+- 被依赖: static_handler, cgi_handler

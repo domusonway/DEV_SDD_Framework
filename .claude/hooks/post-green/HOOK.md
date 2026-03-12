@@ -1,49 +1,33 @@
 # HOOK: post-green
-# 触发：当前模块/项目所有测试变 GREEN
-# 目的：自动推进到验证和经验沉淀，不靠人工记得
+> 触发时机：所有测试变为 GREEN 后，立即执行
 
-## 触发序列
+---
 
+## 执行步骤
+
+### Step 1: 运行 validate-output skill
 ```
-所有测试 GREEN
-    │
-    ├─ 1. 检查 Memory 标注覆盖率
-    │      扫描代码中 "★ MEM" 注释数量
-    │      若有 recv() 但无任何 ★ MEM_F_C_004 → 警告
-    │
-    ├─ 2. 调用 validate-output skill（集成验证）
-    │      @skills/validate-output/SKILL.md
-    │      若失败 → 回到实现，不是改测试
-    │
-    └─ 3. 判断是否有新发现值得写入 Memory
-           有新 Bug 模式 / 新决策理由 → @skills/memory-update/SKILL.md
-           无新发现 → 跳过，完成
+读取 .claude/skills/validate-output/SKILL.md 并完整执行
 ```
 
-## 快速检查脚本
-
+### Step 2: 运行 post-green 脚本
 ```bash
-#!/bin/bash
-# post-green.sh — 在项目根目录运行
+bash .claude/hooks/post-green/run.sh
+```
 
-echo "=== post-green 检查 ==="
+### Step 3: 记忆沉淀判断
+检查本轮实现中是否有值得记录的经验：
+- 遇到过 RED > 2 次的 Bug？→ 必须记录
+- 有超出预期的设计决策？→ 建议记录
+- 发现 SPEC 不清晰的地方？→ 记录并更新 SPEC
 
-# 1. Memory 标注覆盖
-MEM_COUNT=$(grep -r "★ MEM" . --include="*.py" -l | wc -l)
-RECV_COUNT=$(grep -r "recv(" . --include="*.py" -l | wc -l)
+执行：读取 `.claude/skills/memory-update/SKILL.md`
 
-if [ "$RECV_COUNT" -gt 0 ] && [ "$MEM_COUNT" -eq 0 ]; then
-    echo "⚠️  警告：发现 recv() 调用但无 ★ MEM_F_C_004 标注"
-    echo "   请确认异常处理是否符合 MEM_F_C_004"
-else
-    echo "✅ Memory 标注：$MEM_COUNT 文件有标注"
-fi
-
-# 2. 运行集成测试（若有）
-if [ -f "tests/test_integration.py" ]; then
-    echo "--- 集成测试 ---"
-    python3 -m pytest tests/test_integration.py -v
-fi
-
-echo "=== 完成 ==="
+### Step 4: 输出完成报告
+```
+[POST-GREEN 完成]
+测试状态：X/X PASS
+验收结果：✅ / ⚠️ [细节]
+记忆沉淀：N条新记忆写入 projects/<n>/memory/
+下一步：[继续下一模块 / 项目交付]
 ```

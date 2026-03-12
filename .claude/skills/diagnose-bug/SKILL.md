@@ -1,69 +1,61 @@
 # SKILL: diagnose-bug
-# 触发：RED 超过 2 次仍未 GREEN，或出现意外 ERROR（非 FAIL）
+> 任务：RED 状态超过 2 次时，系统性诊断并修复 Bug
 
-## 诊断步骤（按顺序执行）
+---
 
-### Step 1：区分 FAIL vs ERROR
+## 触发时机
+stuck-detector hook 触发，或人工判断 RED > 2 次时。
+
+---
+
+## 诊断流程
+
+### Step 1: 停止随机改代码
+立刻停止。随机修改只会增加噪声，把 RED > 2 变成 RED > 5。
+
+### Step 2: 读取错误信息（完整，不截断）
+```bash
+python3 -m pytest tests/test_<module>.py -v 2>&1 | head -60
 ```
-FAIL  = 断言失败（逻辑错误，预期行为不符）
-ERROR = 异常未捕获（代码崩溃，接口错误）
-→ ERROR 优先于 FAIL 处理
+记录：
+- 错误类型（AssertionError / TypeError / AttributeError / ...）
+- 错误位置（文件名 + 行号）
+- 期望值 vs 实际值
+
+### Step 3: 分类诊断
+
+#### 类型错误（TypeError / bytes vs str）
+→ 检查 SPEC 的 dtype 约定（MEM_F_C_002）
+→ 追踪数据从哪里来，在哪里发生类型转换
+
+#### 连接错误（ConnectionResetError / BrokenPipeError）
+→ 检查 recv 异常捕获（MEM_F_C_004）
+→ 检查 b'' 处理（MEM_F_C_005）
+
+#### 断言失败（AssertionError）
+→ 打印实际值：`print(repr(actual))`
+→ 检查编码（bytes.decode() 丢失 \r？）
+→ 检查空格/换行（\r\n vs \n）
+
+#### 属性错误（AttributeError）
+→ 检查接口签名是否与 SPEC 一致
+→ 检查返回值结构（dict key 拼写）
+
+### Step 4: 形成假设，单点验证
+每次只改一处。改多处 = 无法确定哪个修复有效。
+
+### Step 5: 若 5 次后仍无法修复
+1. 在 TODO.md 记录：症状、已尝试方案、假设
+2. 回退到最后一个 GREEN 状态
+3. 重新审查 SPEC，考虑是否 SPEC 本身有误
+
+---
+
+## 记录要求
+Bug 修复后，写入项目 memory：
 ```
-
-### Step 2：ERROR 时的检查清单
-
+症状：XXX
+根因：XXX
+修复：XXX
+预防：XXX
 ```
-□ 是 ConnectionResetError / OSError？
-  → ★ MEM_F_C_004：recv 循环缺少精确异常捕获
-  → 修复：except (socket.timeout, ConnectionResetError, OSError)
-
-□ 是 TypeError: a bytes-like object is required?
-  → ★ MEM_F_C_002：str 直接传给 socket.send()
-  → 修复：所有发送内容必须 .encode() 为 bytes
-
-□ 是 AttributeError: NoneType?
-  → 函数返回 None 但调用方期望其他类型
-  → 检查 BRIEF/SPEC 中的返回类型标注
-
-□ 是 RecursionError / 测试卡住不退出？
-  → threading.Lock 在同一线程递归调用 → 死锁
-  → 修复：改用 threading.RLock
-```
-
-### Step 3：FAIL 时的检查清单
-
-```
-□ 测试的断言是否和 BRIEF/SPEC 一致？
-  → 若不一致：BRIEF/SPEC 定义为准（不改断言，改实现）
-
-□ 是否存在状态泄漏（上一个测试影响了这个）？
-  → 在 setUp() 中重置所有共享状态
-
-□ 是否是浮点精度问题？
-  → 用 assertAlmostEqual 或整数化处理
-
-□ 是否是 CRLF vs LF 问题？
-  → 所有协议输出用 \r\n，测试断言也用 \r\n
-```
-
-### Step 4：输出诊断报告
-
-```
-[Bug诊断报告]
-症状: FAIL / ERROR
-错误信息: <粘贴错误>
-根因: <从上面清单中定位>
-关联Memory: MEM_F_C_00X（若匹配）
-修复方案: <具体代码修改>
-是否修改测试: 否（除非确认测试本身有bug）
-```
-
-## 常见根因速查表
-
-| 错误 | 根因 | Memory | 修复 |
-|------|------|--------|------|
-| ConnectionResetError | recv 未精确捕获 | MEM_F_C_004 | 精确 except 三元组 |
-| TypeError bytes | str→socket | MEM_F_C_002 | .encode() |
-| 测试永远 PASS | 测试写错了 | MEM_F_C_001 | 先确认 RED |
-| 断言值硬改 | 违反规则 | MEM_F_C_003 | 改实现不改测试 |
-| 死锁 | Lock 递归 | — | 改 RLock |

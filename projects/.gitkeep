@@ -1,0 +1,3 @@
+# 此文件保证 projects/ 目录被 git 追踪
+# 实际项目 repo 通过 git clone 放置于此目录，不被框架 git 管理
+# 参见根目录 .gitignore：projects/* 被忽略，_template/ 和此文件保留

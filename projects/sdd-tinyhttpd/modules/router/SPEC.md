@@ -1,53 +1,57 @@
----
-module: router
-id: M03
-version: 0.1.0
-status: locked
+# SPEC: router
+> 创建日期: 2026-03-03 | 状态: 确认
+
 ---
 
-# 模块规格：router
+## 模块职责
+根据请求路径决定使用哪种处理器。
 
-## 职责
-根据 Request 的 method 和 url，决定使用哪个 handler，返回 handler 函数引用。
+---
 
 ## 接口定义
 
 ```python
-from typing import Callable
-import socket
-from .request_parser import Request
-
-HandlerFn = Callable[[socket.socket, Request], None]
-
-def route(request: Request) -> HandlerFn:
+def route(path: str, htdocs_root: str) -> str:
     """
-    返回对应的 handler 函数。
-    规则：
-      - url 以 /cgi-bin/ 开头 → cgi_handler.execute_cgi
-      - method == "POST"       → cgi_handler.execute_cgi
-      - 其余                   → static_handler.serve_file
+    根据路径返回处理器类型。
+
+    Returns:
+        str: "static" | "cgi" | "not_found"
     """
 ```
 
-## 输出规格
+---
 
-| 返回 | 类型 | 说明 |
-|------|------|------|
-| handler | Callable[[socket.socket, Request], None] | 函数引用，不调用 |
+## 接口表
 
-## ⚠️ 本模块强制规则
+| 方向 | 名称 | 类型 | 说明 |
+|------|------|------|------|
+| 输入 | path | **str** | 请求路径（不含 query string） |
+| 输入 | htdocs_root | **str** | 静态文件根目录的绝对路径 |
+| 输出 | 返回值 | **str** | "static" / "cgi" / "not_found" |
 
-- router 只返回 handler，不调用它（调用由 server 负责）
-- 不在此模块做任何 socket IO
+---
 
-## 测试要点
+## 路由规则
 
-- `/cgi-bin/test.py` → 返回 `cgi_handler.execute_cgi`
-- POST `/any` → 返回 `cgi_handler.execute_cgi`
-- GET `/index.html` → 返回 `static_handler.serve_file`
-- GET `/` → 返回 `static_handler.serve_file`
+| 条件 | 返回值 |
+|------|--------|
+| path 以 /cgi-bin/ 开头 | "cgi" |
+| 文件存在于 htdocs_root + path | "static" |
+| path == "/" 且 index.html 存在 | "static" |
+| 其他 | "not_found" |
+
+---
+
+## 行为规格
+
+```
+path="/index.html", 文件存在    → "static"
+path="/cgi-bin/color.cgi"       → "cgi"
+path="/missing.html", 文件不存在 → "not_found"
+path="/"                        → "static"（重定向到 index.html）
+```
 
 ## 依赖
-
-- 依赖模块：M02(request_parser 的 Request 类型)
-- 被依赖于：M06(server)
+- 依赖: os.path（stdlib）
+- 被依赖: server

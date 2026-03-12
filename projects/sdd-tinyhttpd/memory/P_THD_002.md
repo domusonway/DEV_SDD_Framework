@@ -1,35 +1,44 @@
 ---
 id: P_THD_002
-title: POST body 读取偏移：parse_content_length 后必须 drain_headers
 project: sdd-tinyhttpd
+title: recv 循环未检查 b''，客户端关闭后死循环 CPU 100%
+severity: BUG_FIX
 created: 2026-03-03
+promoted_to_framework: MEM_F_C_005（recv b'' 检查）
 ---
 
-## 现象
-POST 请求中，CGI 收到的 stdin body 前多了 `\r\n` 前缀，CGI 脚本解析失败。
+## 症状
+客户端关闭连接后，服务器线程 CPU 占用跳至 100%，持续不降。
+`top` 显示 python3 进程单核跑满。
 
 ## 根因
-HTTP 请求结构：
+```python
+# ❌ 问题代码
+def read_request(conn):
+    buf = b""
+    while True:
+        chunk = conn.recv(1)   # 客户端关闭后永远返回 b''
+        buf += chunk           # 无限追加空 bytes，死循环
 ```
-POST /cgi-bin/test.py HTTP/1.0\r\n
-Content-Length: 15\r\n      ← parse_content_length 读到这里 return
-\r\n                         ← 空行仍在 socket 缓冲！
-hello_post_body
-```
-`parse_content_length` 找到目标行即 return，不消费后续空行。
-server 直接 `conn.recv(content_length)` 读到的前两字节是 `\r\n`。
+
+`conn.recv()` 在对端关闭时返回 `b''`（空 bytes），不抛异常，不返回 None。
+未检查 `if not data` 导致无限循环。
 
 ## 修复
 ```python
-content_length = parse_content_length(conn)
-drain_headers(conn)  # 消费剩余头部直到空行
-body = conn.recv(content_length)
+# ✅ 修复后
+def read_request(conn):
+    buf = b""
+    while True:
+        data = conn.recv(4096)
+        if not data:   # b'' = 对端已关闭
+            break
+        buf += data
+        if b"\r\n\r\n" in buf:   # HTTP 头部结束
+            break
+    return buf
 ```
 
-## 单元测试为何未发现
-MockSocket 喂入单一数据块，parse_content_length 消费完后 mock 就"空了"，
-不存在"残留空行"的问题。E2E 测试才能发现真实 socket 的行为。
-
-## 已升级为框架 Memory
-→ framework/memory/domains/http/MEM_D_HTTP_005.md
-→ 也验证了 MEM_F_I_003（E2E 测试发现隐式契约）
+## 预防
+所有 recv 循环必须包含 `if not data: break`。
+→ 已提升为框架 MEM_F_C_005

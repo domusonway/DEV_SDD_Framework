@@ -32,3 +32,6 @@ skill-tests/reports/*.html
 .env
 .venv/
 venv/
+
+# 其他
+.claude.json

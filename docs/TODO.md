@@ -10,7 +10,8 @@
 
 ## 待办/问题
 
-- [ ] Project下的memory，缺少项目本身结构化记忆
+- [ ] 第一个版本基于Opencode编码的内容为opencode-test-v1，结合项目开发结果，仔细反思该SDD框架存在什么问题，并将报告存入reports目录下
+- [ ] project下的memory，缺少项目本身结构化记忆
 - [ ] 未验证skill-tests
 - [ ] 检查skill-tests是否包含hook、agent等等其他技能验证
 - [ ] command安装脚本：根据不同工具的command规则，编写对应安装脚本。并同步我仓库下的commands信息（.claude/commands），可以先编写claude code和opencode的安装（opencode说明为[命令 | OpenCode](https://opencode.ai/docs/zh-cn/commands/) ）

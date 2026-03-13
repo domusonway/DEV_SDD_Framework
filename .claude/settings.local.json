@@ -1,0 +1,100 @@
+{
+  "_comment": "DEV SDD Framework · Claude Code 权限配置",
+  "_version": "v2.0",
+  "_docs": "https://docs.anthropic.com/claude-code/settings",
+
+  "permissions": {
+    "allow": [
+      "// ── 框架自身文件（只读加载）──────────────────────────────",
+      "Read(.claude/**)",
+      "Read(memory/**)",
+      "Read(skill-tests/**)",
+      "Read(projects/_template/**)",
+
+      "// ── 框架文档写入（memory 更新、skill 测试报告）──────────",
+      "Write(memory/**)",
+      "Write(skill-tests/reports/**)",
+      "Write(skill-tests/generated/**)",
+
+      "// ── 当前激活项目（完整读写）──────────────────────────────",
+      "// 注意：切换项目时，建议在项目级 settings.local.json 中细化",
+      "Read(projects/${PROJECT}/**)",
+      "Write(projects/${PROJECT}/**)",
+
+      "// ── Python 测试执行 ───────────────────────────────────────",
+      "Bash(python3 -m pytest *)",
+      "Bash(python3 -m pytest tests/ *)",
+      "Bash(python3 -m py_compile *)",
+
+      "// ── network-guard 脚本执行 ───────────────────────────────",
+      "Bash(python3 .claude/hooks/network-guard/check.py *)",
+
+      "// ── post-green 脚本执行 ──────────────────────────────────",
+      "Bash(bash .claude/hooks/post-green/run.sh *)",
+
+      "// ── skill 验证测试 ───────────────────────────────────────",
+      "Bash(python3 skill-tests/run_all.py *)",
+      "Bash(python3 skill-tests/generate_cases.py *)",
+
+      "// ── 代码质量扫描（只读 grep/find）────────────────────────",
+      "Bash(grep -rn * modules/)",
+      "Bash(grep -rn * tests/)",
+      "Bash(find modules/ *)",
+      "Bash(find tests/ *)",
+
+      "// ── CGI 脚本权限设置 ─────────────────────────────────────",
+      "Bash(chmod +x projects/*/htdocs/cgi-bin/*)",
+
+      "// ── Git 只读操作（查看状态/日志）────────────────────────",
+      "Bash(git status)",
+      "Bash(git log *)",
+      "Bash(git diff *)",
+      "Bash(git stash list)"
+    ],
+
+    "deny": [
+      "// ── 禁止直接修改框架核心文件（需手动）───────────────────",
+      "Write(.claude/skills/**)",
+      "Write(.claude/hooks/**)",
+      "Write(.claude/agents/**)",
+      "Write(.claude/commands/**)",
+
+      "// ── 禁止修改框架主入口和记忆索引（防止意外覆盖）────────",
+      "Write(CLAUDE.md)",
+      "Write(memory/INDEX.md)",
+      "Write(memory/critical/**)",
+
+      "// ── 禁止删除操作（防止意外丢失数据）────────────────────",
+      "Bash(rm *)",
+      "Bash(rm -rf *)",
+      "Bash(rmdir *)",
+
+      "// ── 禁止 git 写操作（commit/push/reset 需人工确认）─────",
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "Bash(git reset *)",
+      "Bash(git checkout *)",
+      "Bash(git merge *)",
+      "Bash(git rebase *)",
+
+      "// ── 禁止网络请求（除 API 测试外，防止意外外联）─────────",
+      "Bash(curl *)",
+      "Bash(wget *)",
+      "Bash(pip install *)",
+      "Bash(npm install *)",
+
+      "// ── 禁止系统级操作 ───────────────────────────────────────",
+      "Bash(sudo *)",
+      "Bash(chmod * /)",
+      "Bash(chown *)",
+
+      "// ── 禁止修改项目模板（模板是框架版本管理的一部分）──────",
+      "Write(projects/_template/**)"
+    ]
+  },
+
+  "env": {
+    "PYTHONPATH": ".",
+    "PYTHONDONTWRITEBYTECODE": "1"
+  }
+}

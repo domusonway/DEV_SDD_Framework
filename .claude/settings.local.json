@@ -52,6 +52,12 @@
       "Bash(git stash list)"
     ],
 
+    "ask": [
+      "Bash(git push *)",
+      "Bash(npm install *)",
+      "Bash(npx prisma migrate *)"
+    ],
+
     "deny": [
       "// ── 禁止直接修改框架核心文件（需手动）───────────────────",
       "Write(.claude/skills/**)",

@@ -1,0 +1,12 @@
+# sessions/ 目录说明
+#
+# 此目录存放所有会话快照文件
+# 文件名格式：YYYY-MM-DD_HH-MM.md
+# 由 session-snapshot hook 自动创建和维护
+#
+# 文件状态：
+#   status: in-progress  → 对话中断，下次启动会提示续接
+#   status: completed    → 正常结束，已有 SESSION-END
+#
+# 查看所有记录：
+#   python3 .claude/hooks/session-snapshot/write.py list

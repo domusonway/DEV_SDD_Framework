@@ -1,6 +1,6 @@
 {
   "_comment": "DEV SDD Framework · Claude Code 权限配置",
-  "_version": "v2.0",
+  "_version": "v2.1",
   "_docs": "https://docs.anthropic.com/claude-code/settings",
 
   "permissions": {
@@ -17,7 +17,6 @@
       "Write(skill-tests/generated/**)",
 
       "// ── 当前激活项目（完整读写）──────────────────────────────",
-      "// 注意：切换项目时，建议在项目级 settings.local.json 中细化",
       "Read(projects/${PROJECT}/**)",
       "Write(projects/${PROJECT}/**)",
 
@@ -25,6 +24,12 @@
       "Bash(python3 -m pytest *)",
       "Bash(python3 -m pytest tests/ *)",
       "Bash(python3 -m py_compile *)",
+
+      "// ── session-snapshot 脚本执行（新增）────────────────────",
+      "Bash(python3 .claude/hooks/session-snapshot/write.py *)",
+
+      "// ── verify-rules 验证脚本（新增）────────────────────────",
+      "Bash(bash .claude/hooks/verify-rules/check.sh *)",
 
       "// ── network-guard 脚本执行 ───────────────────────────────",
       "Bash(python3 .claude/hooks/network-guard/check.py *)",
@@ -41,6 +46,10 @@
       "Bash(grep -rn * tests/)",
       "Bash(find modules/ *)",
       "Bash(find tests/ *)",
+
+      "// ── sessions 目录查询（新增）────────────────────────────",
+      "Bash(find projects/*/memory/sessions/ *)",
+      "Bash(ls projects/*/memory/sessions/)",
 
       "// ── CGI 脚本权限设置 ─────────────────────────────────────",
       "Bash(chmod +x projects/*/htdocs/cgi-bin/*)",

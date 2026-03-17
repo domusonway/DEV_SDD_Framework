@@ -1,4 +1,5 @@
-# Memory INDEX — DEV SDD Framework v2.0
+````markdown
+# Memory INDEX — DEV SDD Framework v2.1
 # 启动必读 | 目标：60 秒内扫完，按需展开
 
 ---
@@ -14,11 +15,10 @@
 | MEM_F_C_005 | recv 返回 b'' = 连接关闭，必须检查 | network_code | [→](critical/MEM_F_C_005.md) |
 
 > CRITICAL 已内联到 CLAUDE.md，读到主入口即激活。
-> 详情文件仅在需要理解原因/查反例时展开。
 
 ---
 
-## 📚 IMPORTANT（按需加载，任务匹配时读取）
+## 📚 IMPORTANT（按需加载，context-probe 自动匹配）
 
 ### 网络 / TCP 编程
 | ID | 一句话规则 | 文件 |
@@ -49,19 +49,22 @@
 
 ---
 
-## 📋 加载决策树
+## 📋 加载决策树（v2.1：context-probe 自动执行，此处为备查）
 
 ```
 任务到来
   │
+  ├─ 【自动】执行 context-probe skill 匹配关键词
+  │    → 自动加载匹配的 IMPORTANT 条目（上限4条）
+  │
   ├─ 涉及 socket/recv/send？
-  │    → 额外加载 MEM_F_I_001, MEM_F_I_002
+  │    → context-probe 自动加载 MEM_F_I_001, MEM_F_I_002
   │
   ├─ C → Python 重构？
-  │    → 额外加载 MEM_F_I_004, MEM_F_I_005
+  │    → context-probe 自动加载 MEM_F_I_004, MEM_F_I_005
   │
   ├─ HTTP 协议实现？
-  │    → 加载 domains/http/INDEX.md
+  │    → context-probe 自动加载 domains/http/INDEX.md
   │
   ├─ TDD RED 超过 2 次？
   │    → 触发 diagnose-bug skill，不需要加载更多记忆
@@ -79,6 +82,11 @@ IMPORTANT: 7 条（门槛：1 个项目验证，季度审查）
 领域记忆 : 1 个域（http）
 上次审查 : 2026-03-05
 下次审查 : 2026-09-05
+框架版本 : v2.1（加入 session-snapshot + context-probe）
 ```
 
 > CRITICAL 膨胀预警：超过 7 条需审查合并。
+> IMPORTANT 老化预警：超过 90 天未触发的条目候选归档。
+
+````
+

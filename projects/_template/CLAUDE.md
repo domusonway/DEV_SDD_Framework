@@ -1,3 +1,4 @@
+```markdown
 # {{PROJECT_NAME}} · 项目上下文入口
 > 创建日期: {{DATE}} | 复杂度: {{COMPLEXITY}} | 工作模式: {{MODE}}
 
@@ -39,8 +40,12 @@
 | 项目背景 | `docs/CONTEXT.md` |
 | 当前进度 | `docs/TODO.md` |
 | 项目记忆 | `memory/INDEX.md` |
+| 上次会话 | `memory/sessions/` 最新文件 |
 
 ---
 
 ## 验收标准
 {{ACCEPTANCE_CRITERIA}}
+
+```
+

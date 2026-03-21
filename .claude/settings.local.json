@@ -1,6 +1,6 @@
 {
   "_comment": "DEV SDD Framework · Claude Code 权限配置",
-  "_version": "v2.1",
+  "_version": "v3.0",
   "_docs": "https://docs.anthropic.com/claude-code/settings",
 
   "permissions": {
@@ -25,10 +25,20 @@
       "Bash(python3 -m pytest tests/ *)",
       "Bash(python3 -m py_compile *)",
 
-      "// ── session-snapshot 脚本执行（新增）────────────────────",
+      "// ── session-snapshot 脚本执行 ────────────────────────────",
       "Bash(python3 .claude/hooks/session-snapshot/write.py *)",
 
-      "// ── verify-rules 验证脚本（新增）────────────────────────",
+      "// ── context-budget / handoff 脚本执行（新增）────────────",
+      "Bash(python3 .claude/hooks/context-budget/handoff.py *)",
+
+      "// ── observe-verify 检查脚本（新增）──────────────────────",
+      "Bash(python3 .claude/hooks/observe-verify/check_impl.py *)",
+      "Bash(python3 .claude/hooks/observe-verify/check_contract.py *)",
+
+      "// ── plan-tracker 工具（新增）─────────────────────────────",
+      "Bash(python3 .claude/tools/plan-tracker/tracker.py *)",
+
+      "// ── verify-rules 验证脚本 ────────────────────────────────",
       "Bash(bash .claude/hooks/verify-rules/check.sh *)",
 
       "// ── network-guard 脚本执行 ───────────────────────────────",
@@ -36,6 +46,10 @@
 
       "// ── post-green 脚本执行 ──────────────────────────────────",
       "Bash(bash .claude/hooks/post-green/run.sh *)",
+
+      "// ── init.sh 执行（新增，H 模式 sub-agent 环境验证）──────",
+      "Bash(bash init.sh)",
+      "Bash(bash projects/${PROJECT}/init.sh)",
 
       "// ── skill 验证测试 ───────────────────────────────────────",
       "Bash(python3 skill-tests/run_all.py *)",
@@ -47,7 +61,7 @@
       "Bash(find modules/ *)",
       "Bash(find tests/ *)",
 
-      "// ── sessions 目录查询（新增）────────────────────────────",
+      "// ── sessions 目录查询 ────────────────────────────────────",
       "Bash(find projects/*/memory/sessions/ *)",
       "Bash(ls projects/*/memory/sessions/)",
 
@@ -79,6 +93,9 @@
       "Write(memory/INDEX.md)",
       "Write(memory/critical/**)",
 
+      "// ── 禁止 PLAN.md 直接写入（只能通过 plan-tracker）──────",
+      "Write(projects/*/docs/PLAN.md)",
+
       "// ── 禁止删除操作（防止意外丢失数据）────────────────────",
       "Bash(rm *)",
       "Bash(rm -rf *)",
@@ -92,7 +109,7 @@
       "Bash(git merge *)",
       "Bash(git rebase *)",
 
-      "// ── 禁止网络请求（除 API 测试外，防止意外外联）─────────",
+      "// ── 禁止网络请求 ─────────────────────────────────────────",
       "Bash(curl *)",
       "Bash(wget *)",
       "Bash(pip install *)",
@@ -103,7 +120,7 @@
       "Bash(chmod * /)",
       "Bash(chown *)",
 
-      "// ── 禁止修改项目模板（模板是框架版本管理的一部分）──────",
+      "// ── 禁止修改项目模板 ─────────────────────────────────────",
       "Write(projects/_template/**)"
     ]
   },

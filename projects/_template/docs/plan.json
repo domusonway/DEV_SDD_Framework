@@ -1,0 +1,60 @@
+{
+  "_comment": "结构化计划文件。由 plan-tracker/tracker.py 维护，PLAN.md 为自动生成的只读视图。状态值: pending/in_progress/completed/skipped",
+  "project": "{{PROJECT_NAME}}",
+  "created": "{{DATE}}",
+  "batches": [
+    {
+      "name": "批次 1（基础模块）",
+      "description": "无依赖，可并行实现",
+      "modules": [
+        {
+          "name": "{{MODULE_A}}",
+          "complexity": "M",
+          "risk": "",
+          "deps": [],
+          "state": "pending",
+          "completed_at": null
+        },
+        {
+          "name": "{{MODULE_B}}",
+          "complexity": "L",
+          "risk": "",
+          "deps": [],
+          "state": "pending",
+          "completed_at": null
+        }
+      ]
+    },
+    {
+      "name": "批次 2（依赖批次1）",
+      "description": "依赖批次1的输出接口",
+      "modules": [
+        {
+          "name": "{{MODULE_C}}",
+          "complexity": "M",
+          "risk": "接口稳定性",
+          "deps": ["{{MODULE_A}}"],
+          "state": "pending",
+          "completed_at": null
+        }
+      ]
+    }
+  ],
+  "milestones": [
+    {
+      "name": "M1: 基础功能",
+      "condition": "批次1全绿",
+      "target_date": "{{DATE}}"
+    },
+    {
+      "name": "M2: 完整功能",
+      "condition": "所有批次全绿",
+      "target_date": "{{DATE}}"
+    },
+    {
+      "name": "M3: 交付就绪",
+      "condition": "validate-output 通过",
+      "target_date": "{{DATE}}"
+    }
+  ]
+}

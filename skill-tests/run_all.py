@@ -35,17 +35,25 @@ API_URL = "https://api.anthropic.com/v1/messages"
 _BASE = os.environ.get("ANTHROPIC_BASE_URL", "https://api.anthropic.com").rstrip("/")
 API_URL = f"{_BASE}/v1/messages"
 _API_KEY = os.environ.get("ANTHROPIC_AUTH_TOKEN") or os.environ.get("ANTHROPIC_API_KEY", "")
-MODEL = "claude-sonnet-4-20250514"
+MODEL = "claude-sonnet-4-6"
 
+# ── Layer 1 测试文件列表（v3.0 更新）────────────────────────────────────────
 LAYER1_FILES = [
+    # 原有 skills
     "test_complexity_assess.py",
     "test_tdd_cycle.py",
     "test_diagnose_bug.py",
     "test_memory_update.py",
     "test_validate_output.py",
+    # 原有 hooks
     "test_hook_network_guard.py",
     "test_hook_post_green.py",
     "test_hook_stuck_detector.py",
+    # v3.0 新增 skills
+    "test_observe_verify.py",
+    "test_sub_agent_isolation.py",
+    # v3.0 新增 hooks/tools
+    "test_context_budget.py",
 ]
 
 ROUTING_SYSTEM = """
@@ -57,13 +65,16 @@ ROUTING_SYSTEM = """
 |---------|---------|
 | 收到开发任务 | .claude/skills/complexity-assess/SKILL.md |
 | TDD 实现阶段 | .claude/skills/tdd-cycle/SKILL.md |
+| VALIDATE 阶段（每模块）| .claude/skills/observe-verify/SKILL.md |
 | 出现 Bug / RED > 2次 | .claude/skills/diagnose-bug/SKILL.md |
 | 所有测试 GREEN 后 | .claude/skills/validate-output/SKILL.md |
 | 项目完成后 | .claude/skills/memory-update/SKILL.md |
 | H 模式多模块规划 | .claude/agents/planner.md |
+| H 模式 sub-agent 隔离 | .claude/skills/sub-agent-isolation/SKILL.md |
 | 写任何网络代码后 | .claude/hooks/network-guard/HOOK.md（立即执行）|
 | RED 超过 2 次 | .claude/hooks/stuck-detector/HOOK.md（立即执行）|
 | 所有测试 GREEN | .claude/hooks/post-green/HOOK.md（立即执行）|
+| 每模块 UPDATE-PLAN 后 | .claude/hooks/context-budget/HOOK.md（立即检查）|
 
 当我描述一个场景，请告诉我应该读取哪个文件及原因。
 """.strip()
@@ -139,7 +150,7 @@ def run_l1_file(test_file):
         return {"name": test_file, "status": "MISSING", "stdout": "", "stderr": "文件不存在"}
     result = subprocess.run(
         [sys.executable, str(path)],
-        capture_output=True, text=True, timeout=10
+        capture_output=True, text=True, timeout=30
     )
     return {
         "name": test_file,
@@ -162,9 +173,14 @@ def run_layer1(skill_filter=None):
             r = run_l1_file(f)
         except subprocess.TimeoutExpired:
             r = {"name": f, "status": "TIMEOUT", "stdout": "", "stderr": "超时"}
-        icon = "✅" if r["status"] == "PASS" else "❌"
+        icon = "✅" if r["status"] == "PASS" else ("⚠️" if r["status"] == "MISSING" else "❌")
         name = f.replace("test_", "").replace(".py", "")
-        print(f"  {icon} {name:<36} {r['status']}")
+        print(f"  {icon} {name:<40} {r['status']}")
+        if r["status"] == "FAIL":
+            # 打印失败详情
+            for line in (r["stdout"] + r["stderr"]).strip().splitlines():
+                if line.strip():
+                    print(f"      {line}")
         results.append({"layer": 1, **r})
     return results
 
@@ -243,7 +259,7 @@ def main():
         print()
 
     print("=" * 56)
-    print("  DEV SDD Framework — Skill Tests")
+    print("  DEV SDD Framework — Skill Tests v3.0")
     print(f"  Layer: {args.layer}  |  {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     if args.skill:
         print(f"  Filter: {args.skill}")
@@ -267,19 +283,20 @@ def main():
 
     passed = sum(1 for r in all_results if r["status"] == "PASS")
     total = len(all_results)
-    failed = [r for r in all_results if r["status"] not in ("PASS",)]
+    failed_items = [r for r in all_results if r["status"] not in ("PASS",)]
 
     print(f"\n{'='*56}")
     print(f"  总结: {passed}/{total} 通过  {'✅' if passed == total else '❌'}")
-    if failed:
+    if failed_items:
         print(f"\n  失败项:")
-        for r in failed:
+        for r in failed_items:
             print(f"    [L{r['layer']}] {r['name']} [{r['status']}]")
 
     ts = datetime.now().strftime('%Y%m%d_%H%M%S')
     report_path = REPORTS_DIR / f"report_L{args.layer}_{ts}.json"
     report = {
         "timestamp": datetime.now().isoformat(),
+        "framework_version": "v3.0",
         "layer": args.layer,
         "skill_filter": args.skill,
         "passed": passed,

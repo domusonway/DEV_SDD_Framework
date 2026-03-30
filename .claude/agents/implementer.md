@@ -24,6 +24,7 @@ for 批次 in Planner.批次列表:
         执行完整 RED → GREEN → REFACTOR → VALIDATE → UPDATE-PLAN
         执行 validate-output skill
         若有网络代码：执行 network-guard hook
+        执行 hook-observer（检测本模块是否触发了应触发的 Hook）
     确认批次内所有模块 GREEN
     执行批次完成检查（见下方）
     触发 post-green hook（每批次结束时）
@@ -40,6 +41,7 @@ for 批次 in Planner.批次列表:
 - [ ] **memory/INDEX.md 的"模块实现状态"已更新为 ✅**
 - [ ] **memory/INDEX.md 的"接口快照"中本批次接口标记为 🟢**
 - [ ] 下一批次依赖的接口已在"接口快照"中标记为 🟢（稳定）
+- [ ] **运行 check_tools.sh，无新增 TOOL_SIGNAL 或已记录到 session**
 
 > ⚠️ 若 PLAN.md 未更新，视为本批次**未完成**，不得进入下一批次。
 
@@ -58,4 +60,3 @@ for 批次 in Planner.批次列表:
 所有批次完成 → 确认 PLAN.md 无未勾选项 → 移交 Reviewer：读取 `.claude/agents/reviewer.md`
 
 ````
-

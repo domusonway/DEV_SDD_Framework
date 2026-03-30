@@ -117,6 +117,35 @@ else
     echo "  ─  docs/PLAN.md 不存在（L 模式项目正常）"
 fi
 
+# ── 检查 6：candidates/ 积压状态（新增）──────────────────────────────────────
+echo ""
+echo "【6】Meta-Skill Loop 候选状态"
+CANDIDATES_DIR="$FRAMEWORK_ROOT/memory/candidates"
+if [ -d "$CANDIDATES_DIR" ]; then
+    PENDING=$(find "$CANDIDATES_DIR" -name "*.yaml" | xargs grep -l "status: pending_review" 2>/dev/null | wc -l | tr -d ' ' || echo 0)
+    PROMOTED=$(find "$CANDIDATES_DIR" -name "*.yaml" | xargs grep -l "status: promoted" 2>/dev/null | wc -l | tr -d ' ' || echo 0)
+    if [ "$PENDING" -gt 15 ]; then
+        echo "  ⚠️  积压 $PENDING 条待审核候选（建议运行 /project:skill-review）"
+        WARN=$((WARN+1))
+    else
+        echo "  ✅ 候选状态正常  pending: $PENDING  promoted: $PROMOTED"
+        PASS=$((PASS+1))
+    fi
+else
+    echo "  ─  memory/candidates/ 不存在（框架未升级，正常）"
+fi
+
+# ── 检查 7：tool health check（新增）────────────────────────────────────────
+echo ""
+echo "【7】工具健康度"
+CHECK_TOOLS="$FRAMEWORK_ROOT/.claude/hooks/verify-rules/check_tools.sh"
+if [ -f "$CHECK_TOOLS" ]; then
+    bash "$CHECK_TOOLS" "$PROJECT" 2>/dev/null | grep -E "✅|⚠️|TOOL_SIGNAL" | head -5 || true
+    PASS=$((PASS+1))
+else
+    echo "  ─  check_tools.sh 不存在（框架未升级）"
+fi
+
 # ── 汇总 ─────────────────────────────────────────────────────────────────────
 echo ""
 echo "───────────────────────────────────────────"

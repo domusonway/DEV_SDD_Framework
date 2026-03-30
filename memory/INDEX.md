@@ -1,5 +1,5 @@
 ````markdown
-# Memory INDEX — DEV SDD Framework v2.1
+# Memory INDEX — DEV SDD Framework v3.1
 # 启动必读 | 目标：60 秒内扫完，按需展开
 
 ---
@@ -46,19 +46,43 @@
 | 领域 | 加载时机 | 入口 |
 |------|---------|------|
 | HTTP 网络编程 | 涉及 HTTP 协议实现 | [memory/domains/http/INDEX.md](domains/http/INDEX.md) |
+| TDD 模式 | TDD 失败 / 测试设计问题 | [memory/domains/tdd_patterns/INDEX.md](domains/tdd_patterns/INDEX.md) |
+| 类型安全 | bytes/str/类型错误 | [memory/domains/type_safety/INDEX.md](domains/type_safety/INDEX.md) |
+| 并发编程 | threading/asyncio/锁 | [memory/domains/concurrency/INDEX.md](domains/concurrency/INDEX.md) |
 
 ---
 
-## 📋 加载决策树（v2.1：context-probe 自动执行，此处为备查）
+## 🔬 候选规则区（Meta-Skill Loop，v3.1 新增）
+
+> 此区域记录已通过 2+ 项目验证但尚未正式提升的候选规则。
+> 正式提升后从此区移除，写入上方对应分区。
+> 详细信息见 `memory/candidates/` 目录。
+
+**查看全部候选**：
+```bash
+python3 .claude/tools/skill-tracker/tracker.py candidates
+```
+
+**审核并提升**：`/project:skill-review`
+
+**变更历史**：[memory/skill-changelog.md](skill-changelog.md)
+
+---
+
+## 📋 加载决策树（v3.1：context-probe 自动执行，此处为备查）
 
 ```
 任务到来
   │
   ├─ 【自动】执行 context-probe skill 匹配关键词
   │    → 自动加载匹配的 IMPORTANT 条目（上限4条）
+  │    → 检查 candidates/ 预警（validated_projects ≥ 2）
   │
   ├─ 涉及 socket/recv/send？
   │    → context-probe 自动加载 MEM_F_I_001, MEM_F_I_002
+  │
+  ├─ 涉及 asyncio/aiohttp？
+  │    → context-probe 自动加载 domains/concurrency/INDEX.md
   │
   ├─ C → Python 重构？
   │    → context-probe 自动加载 MEM_F_I_004, MEM_F_I_005
@@ -79,14 +103,15 @@
 ```
 CRITICAL : 5 条（门槛：≥3 个项目独立验证）
 IMPORTANT: 7 条（门槛：1 个项目验证，季度审查）
-领域记忆 : 1 个域（http）
+领域记忆 : 4 个域（http / tdd_patterns / type_safety / concurrency）
+候选规则 : 见 memory/candidates/ 目录
 上次审查 : 2026-03-05
 下次审查 : 2026-09-05
-框架版本 : v2.1（加入 session-snapshot + context-probe）
+框架版本 : v3.1（加入 Meta-Skill Loop 全类型自进化）
 ```
 
 > CRITICAL 膨胀预警：超过 7 条需审查合并。
 > IMPORTANT 老化预警：超过 90 天未触发的条目候选归档。
+> 候选积压预警：pending_review 超过 15 条时运行 /project:skill-review。
 
 ````
-

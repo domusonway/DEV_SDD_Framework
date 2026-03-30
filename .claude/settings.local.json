@@ -1,6 +1,6 @@
 {
-  "_comment": "DEV SDD Framework · Claude Code 权限配置",
-  "_version": "v3.0",
+  "_comment": "DEV SDD Framework · Claude Code 权限配置 v3.1",
+  "_version": "v3.1",
   "_docs": "https://docs.anthropic.com/claude-code/settings",
 
   "permissions": {
@@ -16,6 +16,12 @@
       "Write(skill-tests/reports/**)",
       "Write(skill-tests/generated/**)",
 
+      "// ── candidates/ 写入（Meta-Skill Loop 专用）────────────",
+      "Write(memory/candidates/**)",
+
+      "// ── skill-changelog.md 写入（promote 时自动追加）────────",
+      "Write(memory/skill-changelog.md)",
+
       "// ── 当前激活项目（完整读写）──────────────────────────────",
       "Read(projects/${PROJECT}/**)",
       "Write(projects/${PROJECT}/**)",
@@ -28,18 +34,33 @@
       "// ── session-snapshot 脚本执行 ────────────────────────────",
       "Bash(python3 .claude/hooks/session-snapshot/write.py *)",
 
-      "// ── context-budget / handoff 脚本执行（新增）────────────",
+      "// ── context-budget / handoff 脚本执行 ────────────────────",
       "Bash(python3 .claude/hooks/context-budget/handoff.py *)",
 
-      "// ── observe-verify 检查脚本（新增）──────────────────────",
+      "// ── observe-verify 检查脚本 ──────────────────────────────",
       "Bash(python3 .claude/hooks/observe-verify/check_impl.py *)",
       "Bash(python3 .claude/hooks/observe-verify/check_contract.py *)",
 
-      "// ── plan-tracker 工具（新增）─────────────────────────────",
+      "// ── plan-tracker 工具 ────────────────────────────────────",
       "Bash(python3 .claude/tools/plan-tracker/tracker.py *)",
+
+      "// ── skill-tracker 工具（新增，Meta-Skill Loop）──────────",
+      "Bash(python3 .claude/tools/skill-tracker/tracker.py *)",
+
+      "// ── hook-observer 脚本执行（新增）───────────────────────",
+      "Bash(python3 .claude/hooks/hook-observer/observe.py *)",
+
+      "// ── permission-auditor 脚本执行（新增）──────────────────",
+      "Bash(python3 .claude/hooks/permission-auditor/audit.py *)",
+
+      "// ── test-sync 脚本执行（新增）───────────────────────────",
+      "Bash(python3 .claude/hooks/test-sync/sync.py *)",
 
       "// ── verify-rules 验证脚本 ────────────────────────────────",
       "Bash(bash .claude/hooks/verify-rules/check.sh *)",
+
+      "// ── check_tools 工具健康检测（新增）────────────────────",
+      "Bash(bash .claude/hooks/verify-rules/check_tools.sh *)",
 
       "// ── network-guard 脚本执行 ───────────────────────────────",
       "Bash(python3 .claude/hooks/network-guard/check.py *)",
@@ -47,7 +68,7 @@
       "// ── post-green 脚本执行 ──────────────────────────────────",
       "Bash(bash .claude/hooks/post-green/run.sh *)",
 
-      "// ── init.sh 执行（新增，H 模式 sub-agent 环境验证）──────",
+      "// ── init.sh 执行（H 模式 sub-agent 环境验证）──────────",
       "Bash(bash init.sh)",
       "Bash(bash projects/${PROJECT}/init.sh)",
 
@@ -65,8 +86,15 @@
       "Bash(find projects/*/memory/sessions/ *)",
       "Bash(ls projects/*/memory/sessions/)",
 
+      "// ── candidates 目录查询（新增）─────────────────────────",
+      "Bash(find memory/candidates/ *)",
+      "Bash(ls memory/candidates/)",
+
       "// ── CGI 脚本权限设置 ─────────────────────────────────────",
       "Bash(chmod +x projects/*/htdocs/cgi-bin/*)",
+
+      "// ── check_tools.sh 执行权限设置（新增）──────────────────",
+      "Bash(chmod +x .claude/hooks/verify-rules/check_tools.sh)",
 
       "// ── Git 只读操作（查看状态/日志）────────────────────────",
       "Bash(git status)",
@@ -95,6 +123,9 @@
 
       "// ── 禁止 PLAN.md 直接写入（只能通过 plan-tracker）──────",
       "Write(projects/*/docs/PLAN.md)",
+
+      "// ── 禁止 SCHEMA.md 直接写入（候选格式规范由人工维护）──",
+      "Write(memory/candidates/SCHEMA.md)",
 
       "// ── 禁止删除操作（防止意外丢失数据）────────────────────",
       "Bash(rm *)",

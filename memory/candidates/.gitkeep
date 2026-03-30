@@ -1,0 +1,12 @@
+# candidates/ 目录说明
+#
+# 此目录存放所有 Meta-Skill Loop 生成的框架改进候选文件
+# 文件格式：<TYPE>_CAND_<PROJECT>_<SEQ>.yaml
+# 格式规范：见 SCHEMA.md
+#
+# 生成方式：
+#   - 自动：memory-keeper → meta-skill-agent / hook-observer / agent-auditor
+#   - 手动：/project:memory-update
+#
+# 审核方式：/project:skill-review
+# 追踪工具：python3 .claude/tools/skill-tracker/tracker.py candidates

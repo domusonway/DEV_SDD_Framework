@@ -23,11 +23,25 @@ bash .claude/hooks/post-green/run.sh
 
 执行：读取 `.claude/skills/memory-update/SKILL.md`
 
-### Step 4: 输出完成报告
+### Step 4: 运行 hook-observer（新增）
+```bash
+python3 .claude/hooks/hook-observer/observe.py ${PROJECT}
+```
+检测本模块实现过程中是否存在 Hook 漏触发信号，生成 HOOK_CAND 候选。
+
+### Step 5: 运行 tool health check（新增）
+```bash
+bash .claude/hooks/verify-rules/check_tools.sh ${PROJECT}
+```
+TOOL_SIGNAL 输出写入当前 session，供 meta-skill-agent 后续读取。
+
+### Step 6: 输出完成报告
 ```
 [POST-GREEN 完成]
 测试状态：X/X PASS
 验收结果：✅ / ⚠️ [细节]
 记忆沉淀：N条新记忆写入 projects/<n>/memory/
+hook-observer：[无候选 / N条候选写入 candidates/]
+tool-health：[正常 / N个警告，见 TOOL_SIGNAL]
 下一步：[继续下一模块 / 项目交付]
 ```

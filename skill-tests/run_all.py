@@ -37,7 +37,7 @@ API_URL = f"{_BASE}/v1/messages"
 _API_KEY = os.environ.get("ANTHROPIC_AUTH_TOKEN") or os.environ.get("ANTHROPIC_API_KEY", "")
 MODEL = "claude-sonnet-4-6"
 
-# ── Layer 1 测试文件列表（v3.0 更新）────────────────────────────────────────
+# ── Layer 1 测试文件列表（v3.1 更新）────────────────────────────────────────
 LAYER1_FILES = [
     # 原有 skills
     "test_complexity_assess.py",
@@ -54,6 +54,8 @@ LAYER1_FILES = [
     "test_sub_agent_isolation.py",
     # v3.0 新增 hooks/tools
     "test_context_budget.py",
+    # v3.1 新增：Meta-Skill Loop 全组件测试
+    "test_meta_skill_loop.py",
 ]
 
 ROUTING_SYSTEM = """
@@ -75,6 +77,8 @@ ROUTING_SYSTEM = """
 | RED 超过 2 次 | .claude/hooks/stuck-detector/HOOK.md（立即执行）|
 | 所有测试 GREEN | .claude/hooks/post-green/HOOK.md（立即执行）|
 | 每模块 UPDATE-PLAN 后 | .claude/hooks/context-budget/HOOK.md（立即检查）|
+| 项目交付后 | .claude/agents/memory-keeper.md（含 Meta-Skill Loop）|
+| 审核框架候选 | /project:skill-review |
 
 当我描述一个场景，请告诉我应该读取哪个文件及原因。
 """.strip()
@@ -93,7 +97,11 @@ def call_model(user_message, system="", max_tokens=600, retries=2):
             data = json.dumps(payload).encode()
             req = urllib.request.Request(
                 API_URL, data=data,
-                headers={"Content-Type": "application/json", "x-api-key": _API_KEY, "anthropic-version": "2023-06-01"},
+                headers={
+                    "Content-Type": "application/json",
+                    "x-api-key": _API_KEY,
+                    "anthropic-version": "2023-06-01",
+                },
                 method="POST",
             )
             with urllib.request.urlopen(req, timeout=60) as resp:
@@ -175,9 +183,8 @@ def run_layer1(skill_filter=None):
             r = {"name": f, "status": "TIMEOUT", "stdout": "", "stderr": "超时"}
         icon = "✅" if r["status"] == "PASS" else ("⚠️" if r["status"] == "MISSING" else "❌")
         name = f.replace("test_", "").replace(".py", "")
-        print(f"  {icon} {name:<40} {r['status']}")
+        print(f"  {icon} {name:<44} {r['status']}")
         if r["status"] == "FAIL":
-            # 打印失败详情
             for line in (r["stdout"] + r["stderr"]).strip().splitlines():
                 if line.strip():
                     print(f"      {line}")
@@ -200,12 +207,16 @@ def run_layer2(cases):
                 print(f"  {'✅' if passed else '❌'} {name}")
                 if not passed:
                     print(f"       原因: {reason}")
-                results.append({"layer": 2, "skill": skill_id, "name": name,
-                                 "status": status, "reason": reason})
+                results.append({
+                    "layer": 2, "skill": skill_id, "name": name,
+                    "status": status, "reason": reason,
+                })
             except Exception as e:
                 print(f"  ⚠️  {name} [ERROR: {str(e)[:60]}]")
-                results.append({"layer": 2, "skill": skill_id, "name": name,
-                                 "status": "ERROR", "reason": str(e)})
+                results.append({
+                    "layer": 2, "skill": skill_id, "name": name,
+                    "status": "ERROR", "reason": str(e),
+                })
     return results
 
 
@@ -232,13 +243,16 @@ def run_layer3(cases):
                     print(f"       规则来源: 「{rule_src}」")
                 if not passed:
                     print(f"       原因: {reason}")
-                results.append({"layer": 3, "skill": skill_id, "name": name,
-                                 "status": status, "reason": reason,
-                                 "rule_source": rule_src})
+                results.append({
+                    "layer": 3, "skill": skill_id, "name": name,
+                    "status": status, "reason": reason, "rule_source": rule_src,
+                })
             except Exception as e:
                 print(f"  ⚠️  {name} [ERROR: {str(e)[:60]}]")
-                results.append({"layer": 3, "skill": skill_id, "name": name,
-                                 "status": "ERROR", "reason": str(e)})
+                results.append({
+                    "layer": 3, "skill": skill_id, "name": name,
+                    "status": "ERROR", "reason": str(e),
+                })
     return results
 
 
@@ -259,7 +273,7 @@ def main():
         print()
 
     print("=" * 56)
-    print("  DEV SDD Framework — Skill Tests v3.0")
+    print("  DEV SDD Framework — Skill Tests v3.1")
     print(f"  Layer: {args.layer}  |  {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     if args.skill:
         print(f"  Filter: {args.skill}")
@@ -296,7 +310,7 @@ def main():
     report_path = REPORTS_DIR / f"report_L{args.layer}_{ts}.json"
     report = {
         "timestamp": datetime.now().isoformat(),
-        "framework_version": "v3.0",
+        "framework_version": "v3.1",
         "layer": args.layer,
         "skill_filter": args.skill,
         "passed": passed,

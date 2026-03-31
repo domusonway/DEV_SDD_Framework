@@ -1,13 +1,20 @@
-````markdown
+---
+id: context-probe
+version: 3.3.0
+recommended: true
+changelog: memory/skill-changelog.md
+last_updated: 2026-03-31
+---
+
 # SKILL: context-probe
 > 任务：读取用户任务描述，自动匹配并加载相关 memory 条目
-> v3.2：候选预警改为实际可执行路径（M3修复）
+> v3.3：Step 3 升级为候选临时激活（TASK-ANN-02），支持 auto_attach 机制
 
 ---
 
 ## 触发时机
 
-启动协议 Step 2.5（读取 HANDOFF.json / session 续接检测）完成后，用户描述任务时立即执行。
+启动协议 Step 2.5 完成后，用户描述任务时立即执行。
 
 ---
 
@@ -54,20 +61,24 @@
 
 **加载上限：单次最多加载 4 条 IMPORTANT 记忆**
 
-### Step 3: 候选预警（M3修复 — 实际可执行路径）
+---
 
-**执行方式**：在 Step 2 完成后，运行以下命令读取候选状态：
+### Step 3: 候选临时激活（v3.3 升级，TASK-ANN-02）
+
+> 此步骤替代旧版 v3.2 的"候选预警"，实现更强的知识加速复用。
+
+**执行方式**：运行以下命令，查找当前任务维度匹配的 `auto_attach: true` 候选：
 
 ```bash
 python3 .claude/tools/skill-tracker/tracker.py candidates \
     --status pending_review \
-    --min-validated 2 \
-    2>/dev/null | head -30
+    --auto-attach \
+    --domain <当前匹配维度对应的 domain> \
+    2>/dev/null | head -50
 ```
 
-**筛选条件**：只展示 `validated_projects ≥ 2` 且 `domain` 与当前任务匹配的候选。
-
 domain 与任务维度的对应关系：
+
 | 当前任务维度 | 匹配的 domain |
 |------------|--------------|
 | 网络编程 / 异步网络 | network_code |
@@ -75,20 +86,43 @@ domain 与任务维度的对应关系：
 | 类型安全 | type_safety |
 | 多线程 | concurrency |
 | HTTP 协议 | http |
+| 框架改进 | agent_workflow |
 
-**预警输出格式**（有匹配候选时追加到 context-probe 输出末尾）：
+**临时激活输出格式**（若有匹配的 `auto_attach: true` 候选）：
+
+对每个匹配候选，将其 `proposed_diff` 内容作为临时规则直接注入上下文：
 
 ```
-[CANDIDATE PRE-WARN]
-以下候选已在 ≥2 个项目验证，尚待正式提升，请主动注意：
-- HOOK_CAND_SDD-TINYHTTPD-001 (medium, 2项目)：
-  "network-guard 触发条件应扩展覆盖 asyncio 代码"
-  → 本项目含异步网络代码时，请手动执行 network-guard 检查
-[/CANDIDATE PRE-WARN]
+[TEMP_RULE from HOOK_CAND_SDD-TINYHTTPD_001]
+规则来源: hook-observer（confidence: medium，已在 2 个项目验证）
+临时规则内容:
+  network-guard 的触发条件应扩展覆盖 asyncio 相关代码：
+  - asyncio.StreamReader / StreamWriter 需要触发 network-guard
+  - 检查 reader.at_eof() 而非 b'' 判断
+  - writer.drain() 必须 await，writer.close() + wait_closed() 在 finally 中
+
+⚠️ 此为候选临时规则，尚未正式 promote。本次会话中视同正式规则执行。
+   若本项目验证无副作用，请在交付后运行 skill-tracker validate 追加验证。
+[/TEMP_RULE]
 ```
 
-**每次最多显示 3 条**，优先显示 confidence=high。
-若 `skill-tracker` 命令不存在或 candidates/ 为空，静默跳过，不报错。
+**规则**：
+- 只展示 `auto_attach: true` + `status: pending_review` + `confidence >= medium` 的候选
+- 每次最多激活 3 条临时规则（防止上下文过载）
+- 优先激活 `confidence: high` 的候选
+- `confidence: low` 的候选**不**临时激活（单次观察，尚不可靠）
+
+**与旧版预警的区别**：
+
+| 旧版 v3.2（预警） | 新版 v3.3（临时激活） |
+|-----------------|-------------------|
+| 只展示提示，不执行 | 将 proposed_diff 作为约束注入 |
+| Agent 可忽略 | Agent 本次会话中必须遵守 |
+| 需 `validated_projects ≥ 2` | 同上，且需 `auto_attach: true` |
+
+若 `skill-tracker` 命令不存在或 `candidates/` 为空，静默跳过，不报错。
+
+---
 
 ### Step 4: 输出加载确认
 
@@ -99,7 +133,7 @@ domain 与任务维度的对应关系：
 匹配维度: <识别出的维度，多个用逗号分隔>
 自动加载: <MEM_ID 列表或 SKILL 路径，或"仅 CRITICAL">
 跳过加载: <因上限截断的条目，无则省略此行>
-候选预警: <N 条 / 无>
+临时规则: <N 条激活 / 无>
 [/CONTEXT-PROBE]
 ```
 
@@ -108,6 +142,7 @@ domain 与任务维度的对应关系：
 ## 与启动协议的衔接
 
 context-probe 的输出写入当前 session 文件的 `加载记忆` 字段。
+激活的临时规则同步写入 `加载记忆` 字段，标注 `[TEMP]` 前缀。
 HANDOFF.json 存在时，优先根据 `context_notes` 字段补充加载。
 
 ---
@@ -116,14 +151,13 @@ HANDOFF.json 存在时，优先根据 `context_notes` 字段补充加载。
 
 context-probe 是关键词匹配，有误判可能。
 遇到误判时：直接告诉 Claude "加载 MEM_F_XXX"，手动覆盖自动加载结果。
-候选预警中 confidence=low 的条目不显示（避免单次观察造成噪声）。
+临时规则若在本项目中造成问题，可通过 `tracker.py detach <id>` 取消附加。
 
 ---
 
 ## 维护说明
 
 - 当 memory/INDEX.md 新增 IMPORTANT 条目时，同步更新本文件匹配规则表
-- 当候选通过 skill-review promote 后，预警自动消失（status 变为 promoted）
+- 当候选通过 skill-review promote 后，对应的临时规则自动消失（status 变为 promoted）
+- v3.3：Step 3 从"候选预警"升级为"候选临时激活"（TASK-ANN-02）
 - v3.2：候选预警改为实际调用 skill-tracker 命令（M3修复）
-
-````

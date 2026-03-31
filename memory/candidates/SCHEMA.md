@@ -28,9 +28,6 @@
 ```yaml
 # 必填字段
 id: <TYPE>_CAND_<PROJECT-SLUG>_<序号3位>
-  # A1修复：PROJECT-SLUG = 完整项目名 sanitize 后取前20字符（大写，非字母数字→连字符）
-  # 示例：SDD-TINYHTTPD、STRUCTURED-LIGHT-STER、MINI-REDIS
-  # 旧格式（三位缩写 THD、SLS）已废弃，原因：不同项目可能产生相同缩写
 
 candidate_type: <见上方类型表>
 
@@ -60,6 +57,24 @@ validated_projects:
 
 status: pending_review | approved | rejected | promoted
 
+# ── auto_attach 字段（TASK-ANN-01 新增）──────────────────────────────────────
+auto_attach: false
+  # 含义：是否在 context-probe 领域匹配时，将 proposed_diff 作为临时规则注入上下文
+  # 默认：false
+  # 启用条件：confidence >= medium 且 status == pending_review
+  # 人工设置：tracker.py attach <id>  /  tracker.py detach <id>
+  # 效果：Agent 在本次会话中将 [TEMP_RULE from <id>] 视为与正式规则同等效力的约束
+  # 安全边界：auto_attach 不触发任何文件写入，只影响 context-probe 的输出内容
+
+# ── auto_attach 质量追踪字段（由 memory-keeper Step 5.5 维护）─────────────
+auto_attach_triggered_projects: []
+  # 记录哪些项目实际触发了此候选的临时规则
+  # 格式：["project_a", "project_b"]
+
+auto_attach_issues: []
+  # 记录临时规则触发后发现的问题（若有）
+  # 格式：["project_a: 描述问题"]
+
 created: YYYY-MM-DD
 
 # 可选字段
@@ -68,6 +83,23 @@ secondary_target: <主目标之外还需修改的文件>
 failure_count: <在 source_project 中出现的次数>
 promoted_at: YYYY-MM-DD
 reject_reason: <拒绝原因>
+```
+
+---
+
+## auto_attach 生命周期
+
+```
+[候选生成] auto_attach: false（默认）
+    ↓ confidence 达到 medium（≥2项目验证）
+[人工评估] tracker.py attach <id> → auto_attach: true
+    ↓ 新项目启动，context-probe 领域匹配
+[临时激活] [TEMP_RULE from <id>] 注入上下文，Agent 遵守临时规则
+    ↓ 项目交付，memory-keeper Step 5.5 审查
+[质量更新] 追加 auto_attach_triggered_projects
+    ├─ 无副作用 → validated_projects 增加，confidence 可能升为 high
+    │   ↓ confidence = high → /project:skill-review 正式 promote
+    └─ 有问题 → auto_attach: false，追加 auto_attach_issues
 ```
 
 ---
@@ -100,17 +132,6 @@ TYPE 前缀：
 
 PROJECT-SLUG：
   规则：re.sub(r"[^a-zA-Z0-9]", "-", project_name).upper()[:20]
-  示例：
-    "sdd-tinyhttpd"           → "SDD-TINYHTTPD"
-    "structured-light-stereo" → "STRUCTURED-LIGHT-STER"
-    "mini-redis"              → "MINI-REDIS"
-  注意：避免使用旧的三位缩写（THD、SLS 等），不同项目可能产生相同缩写
 
 序号：3位数字，001 起，在同类型+同项目中递增
-
-完整示例：
-  SKILL_CAND_SDD-TINYHTTPD_001.yaml
-  HOOK_CAND_STRUCTURED-LIGHT-STER_002.yaml
-  AGENT_CAND_MINI-REDIS_001.yaml
-  PERM_CAND_SDD-TINYHTTPD_001.yaml
 ```

@@ -1,0 +1,57 @@
+{
+  "generated_at": "2026-03-31T04:58:15.120032",
+  "framework_root": "/home/claude/sdd-framework",
+  "entries": [
+    {
+      "id": "context-probe",
+      "type": "skill",
+      "path": ".claude/skills/context-probe/SKILL.md",
+      "title": "context-probe",
+      "tags": [
+        "socket",
+        "recv",
+        "send",
+        "asyncio",
+        "aiohttp",
+        "websocket",
+        "http",
+        "tcp",
+        "tdd",
+        "red",
+        "memory",
+        "bytes",
+        "str",
+        "threading",
+        "hook",
+        "skill",
+        "agent",
+        "候选",
+        "规则",
+        "网络"
+      ],
+      "version": "3.3.0",
+      "recommended": true,
+      "created": "",
+      "last_updated": "2026-03-31"
+    },
+    {
+      "id": "agents",
+      "type": "agent",
+      "path": ".claude/agents/memory-keeper.md",
+      "title": "Memory Keeper",
+      "tags": [
+        "memory",
+        "hook",
+        "skill",
+        "agent",
+        "候选",
+        "规则",
+        "validate"
+      ],
+      "version": "",
+      "recommended": true,
+      "created": "",
+      "last_updated": "2026-03-31"
+    }
+  ]
+}

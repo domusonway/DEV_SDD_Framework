@@ -3,18 +3,40 @@
 skill-tracker/tracker.py
 全类型框架改进候选的跨项目追踪与提升工具
 
+用途:
+  管理 Meta-Skill Loop 生成的候选规则，支持审核、提升、和候选临时激活（auto_attach）。
+  attach/detach 子命令配合 context-probe 的临时规则注入机制，消除候选到实用的等待期。
+
 用法:
   python3 .claude/tools/skill-tracker/tracker.py candidates            # 查看全部候选
   python3 .claude/tools/skill-tracker/tracker.py candidates --type hook_trigger
   python3 .claude/tools/skill-tracker/tracker.py candidates --min-validated 2
-  python3 .claude/tools/skill-tracker/tracker.py validate <id> --project <p>  # 追加验证
-  python3 .claude/tools/skill-tracker/tracker.py approve <id>          # 标记待提升
+  python3 .claude/tools/skill-tracker/tracker.py candidates --auto-attach   # 只看已附加候选
+  python3 .claude/tools/skill-tracker/tracker.py candidates --domain network_code
+  python3 .claude/tools/skill-tracker/tracker.py attach <id>           # 标记为临时激活
+  python3 .claude/tools/skill-tracker/tracker.py detach <id>           # 取消临时激活
+  python3 .claude/tools/skill-tracker/tracker.py validate <id> --project <p>
+  python3 .claude/tools/skill-tracker/tracker.py approve <id>
   python3 .claude/tools/skill-tracker/tracker.py reject <id> --reason "..."
-  python3 .claude/tools/skill-tracker/tracker.py promote <id>          # 人工批准后写入目标文件
-  python3 .claude/tools/skill-tracker/tracker.py status                # 候选统计摘要
+  python3 .claude/tools/skill-tracker/tracker.py promote <id>
+  python3 .claude/tools/skill-tracker/tracker.py status
+
+示例:
+  # 查看可临时激活的候选（medium+ confidence）
+  python3 .claude/tools/skill-tracker/tracker.py candidates --min-validated 2
+
+  # 标记为临时激活（context-probe 会自动注入其 proposed_diff）
+  python3 .claude/tools/skill-tracker/tracker.py attach HOOK_CAND_SDD-TINYHTTPD_001
+
+  # 查看当前已激活的候选（供 context-probe 调用）
+  python3 .claude/tools/skill-tracker/tracker.py candidates --auto-attach --status pending_review
+
+  # 取消临时激活
+  python3 .claude/tools/skill-tracker/tracker.py detach HOOK_CAND_SDD-TINYHTTPD_001
 """
 import sys
 import re
+import json
 import argparse
 import subprocess
 from datetime import datetime
@@ -33,34 +55,27 @@ ROOT = find_framework_root()
 CANDIDATES_DIR = ROOT / "memory" / "candidates"
 CHANGELOG = ROOT / "memory" / "skill-changelog.md"
 
-# candidate_type → 提升目标目录/文件的解析规则
 PROMOTE_TARGETS = {
-    "skill_rule": "direct_append",       # 追加到 target_file
-    "hook_trigger": "direct_append",     # 追加到 target_file
+    "skill_rule": "direct_append",
+    "hook_trigger": "direct_append",
     "hook_check": "direct_append",
     "agent_constraint": "direct_append",
-    "agent_role_gap": "create_new",      # 需要创建新文件
+    "agent_role_gap": "create_new",
     "tool_subcommand": "direct_append",
     "tool_new": "create_new",
-    "permission_relax": "json_edit",     # 编辑 JSON
+    "permission_relax": "json_edit",
     "permission_tighten": "json_edit",
-    "test_stub": "auto_sync",            # 调用 test-sync
+    "test_stub": "auto_sync",
     "command_missing": "create_new",
+    "planner_risk_dimension_missing": "direct_append",
 }
 
+# ── YAML 解析 ─────────────────────────────────────────────────────────────────
 
-# ── YAML 解析（轻量，不依赖 PyYAML）─────────────────────────────────────────
 def parse_yaml_simple(content: str) -> dict:
-    """
-    解析候选 YAML 文件，支持：
-      - 标量：key: value
-      - 行内列表：key: [a, b, c]
-      - block list：key:\n  - a\n  - b
-      - block scalar (|)：key: |\n  line1\n  line2
-    """
     result = {}
     current_key = None
-    block_mode = None   # "scalar" | "list"
+    block_mode = None
     block_buf: list = []
 
     def flush_block():
@@ -72,23 +87,18 @@ def parse_yaml_simple(content: str) -> dict:
             result[current_key] = "\n".join(block_buf).strip()
 
     for raw_line in content.splitlines():
-        # ── 在 block 模式中处理缩进行 ──────────────────────────────────
         if block_mode is not None:
             stripped = raw_line.strip()
-            # block list 项：以 "- " 开头的缩进行
             if block_mode == "list" and re.match(r"^\s+-\s", raw_line):
                 block_buf.append(stripped.lstrip("- ").strip().strip("'\""))
                 continue
-            # block scalar 行：缩进行
             if block_mode == "scalar" and (raw_line.startswith("  ") or raw_line.startswith("\t")):
                 block_buf.append(stripped)
                 continue
-            # 否则：block 结束，flush 后继续解析当前行
             flush_block()
             block_mode = None
             block_buf = []
 
-        # ── 顶层 key: value 行 ──────────────────────────────────────────
         m = re.match(r"^([\w][\w_-]*):\s*(.*)", raw_line)
         if not m:
             continue
@@ -97,8 +107,7 @@ def parse_yaml_simple(content: str) -> dict:
         val = m.group(2).strip()
 
         if val == "":
-            # 下一行是 block（list 或 scalar）
-            block_mode = "list"   # 默认猜 list，遇到非 "- " 行时会降级
+            block_mode = "list"
             block_buf = []
         elif val == "|":
             block_mode = "scalar"
@@ -114,13 +123,12 @@ def parse_yaml_simple(content: str) -> dict:
     return result
 
 
-def load_all_candidates() -> list[dict]:
-    """加载 candidates/ 目录下全部 YAML 候选"""
+def load_all_candidates() -> list:
     if not CANDIDATES_DIR.exists():
         return []
     candidates = []
     for f in sorted(CANDIDATES_DIR.glob("*.yaml")):
-        if f.name == "SCHEMA.md":
+        if f.name in ("SCHEMA.md",):
             continue
         try:
             content = f.read_text(encoding="utf-8")
@@ -134,7 +142,6 @@ def load_all_candidates() -> list[dict]:
 
 
 def update_candidate_field(filepath: Path, field: str, value: str):
-    """更新 YAML 文件中的单个字段；字段不存在时追加到文件末尾"""
     content = filepath.read_text(encoding="utf-8")
     pattern = re.compile(rf"^{re.escape(field)}:.*$", re.MULTILINE)
     if pattern.search(content):
@@ -145,22 +152,17 @@ def update_candidate_field(filepath: Path, field: str, value: str):
 
 
 def append_validated_project(filepath: Path, project: str):
-    """在 validated_projects 列表中追加新项目"""
     content = filepath.read_text(encoding="utf-8")
     if project in content:
         print(f"  ⚠️  项目 {project} 已在验证列表中")
         return
-
-    # 在列表末尾追加
     new_content = re.sub(
         r"(validated_projects:\s*\n(?:  - .+\n)*)",
         rf"\1  - {project}\n",
         content,
     )
     filepath.write_text(new_content, encoding="utf-8")
-
-    # 更新验证数并提升 confidence
-    data = parse_yaml_simple(new_content)
+    data = parse_yaml_simple(filepath.read_text(encoding="utf-8"))
     validated = data.get("validated_projects", [])
     if isinstance(validated, str):
         validated = [validated]
@@ -169,24 +171,54 @@ def append_validated_project(filepath: Path, project: str):
     update_candidate_field(filepath, "confidence", new_conf)
 
 
+# ── TASK-ANN-03: auto_attach 操作 ────────────────────────────────────────────
+
+def cmd_attach(args):
+    """标记候选为 auto_attach: true，使 context-probe 可临时激活它。"""
+    candidates = load_all_candidates()
+    target = next((c for c in candidates if c.get("id") == args.id), None)
+    if not target:
+        print(f"❌ 未找到候选：{args.id}")
+        sys.exit(1)
+
+    # 安全检查：confidence 必须 >= medium
+    confidence = target.get("confidence", "low")
+    if confidence == "low" and not args.force:
+        print(f"⚠️  候选 {args.id} 的 confidence 为 low（仅1个项目验证），临时激活风险较高。")
+        print(f"   若确定要激活，请使用 --force 参数。")
+        sys.exit(1)
+
+    update_candidate_field(target["_file"], "auto_attach", "true")
+    print(f"✅ {args.id} 已标记为 auto_attach: true")
+    print(f"   context-probe 在领域匹配时将自动注入此候选的临时规则")
+    print(f"   取消：tracker.py detach {args.id}")
+
+
+def cmd_detach(args):
+    """取消候选的 auto_attach 标记。"""
+    candidates = load_all_candidates()
+    target = next((c for c in candidates if c.get("id") == args.id), None)
+    if not target:
+        print(f"❌ 未找到候选：{args.id}")
+        sys.exit(1)
+    update_candidate_field(target["_file"], "auto_attach", "false")
+    print(f"✅ {args.id} 已取消 auto_attach（detach）")
+
+
 # ── promote 实现 ─────────────────────────────────────────────────────────────
+
 def promote_direct_append(data: dict, filepath: Path) -> bool:
-    """将 proposed_diff 追加到目标文件末尾（带标注）"""
     target = ROOT / data.get("target_file", "")
     if not target.exists():
         print(f"  ❌ 目标文件不存在：{target}")
         return False
-
     diff_content = data.get("proposed_diff", "").strip()
     if not diff_content:
         print(f"  ❌ proposed_diff 为空，无法自动 promote")
-        print(f"     请手动编辑：{target}")
         return False
-
     candidate_id = data.get("id", filepath.stem)
     today = datetime.now().strftime("%Y-%m-%d")
     addition = f"\n\n<!-- promoted from {candidate_id} on {today} -->\n{diff_content}\n"
-
     existing = target.read_text(encoding="utf-8")
     target.write_text(existing + addition, encoding="utf-8")
     print(f"  ✅ 已追加到：{target.relative_to(ROOT)}")
@@ -194,29 +226,23 @@ def promote_direct_append(data: dict, filepath: Path) -> bool:
 
 
 def promote_json_edit(data: dict, filepath: Path) -> bool:
-    """提示人工编辑 JSON 文件（不自动修改，因为 deny 规则变更风险高）"""
     target = ROOT / data.get("target_file", "settings.local.json")
     proposed = data.get("proposed_diff", "（无内容）")
     print(f"  ℹ️  权限类候选需要人工编辑：{target.relative_to(ROOT)}")
-    print(f"     建议修改内容：")
     for line in proposed.splitlines():
         print(f"       {line}")
-    print(f"     注意：权限修改不自动执行，请手动编辑后运行 verify-rules/check.sh 验证")
-    return True  # 标记为 promoted（人工执行），不报错
+    return True
 
 
 def promote_auto_sync(data: dict, filepath: Path) -> bool:
-    """调用 test-sync/sync.py 追加测试桩"""
     skill_id = data.get("domain", "")
     if not skill_id:
         target_file = data.get("target_file", "")
         m = re.search(r"test_(\w+)\.py", target_file)
         skill_id = m.group(1) if m else "unknown"
-
     result = subprocess.run(
         [sys.executable, str(ROOT / ".claude/hooks/test-sync/sync.py"), "--skill", skill_id],
-        capture_output=True,
-        text=True,
+        capture_output=True, text=True,
     )
     print(result.stdout)
     if result.returncode != 0:
@@ -226,39 +252,28 @@ def promote_auto_sync(data: dict, filepath: Path) -> bool:
 
 
 def promote_create_new(data: dict, filepath: Path) -> bool:
-    """提示人工创建新文件"""
     target = data.get("target_file", "（未指定）")
     proposed = data.get("proposed_diff", "（无内容）")
     print(f"  ℹ️  需要创建新文件：{target}")
-    print(f"     建议内容：")
     for line in proposed.splitlines()[:10]:
         print(f"       {line}")
-    if len(proposed.splitlines()) > 10:
-        print(f"       ... （共 {len(proposed.splitlines())} 行，见候选文件）")
-    print(f"     请手动创建后更新候选状态：tracker.py promote {data.get('id')} --confirm")
     return True
 
 
 def do_promote(candidate_id: str, confirm: bool = False) -> bool:
-    """执行 promote 操作"""
     candidates = load_all_candidates()
     target = next((c for c in candidates if c.get("id") == candidate_id), None)
-
     if not target:
         print(f"❌ 未找到候选：{candidate_id}")
         return False
-
     status = target.get("status", "")
     if status not in ("approved", "pending_review") and not confirm:
         print(f"⚠️  候选状态为 {status}，请先 approve 或使用 --confirm 强制执行")
         return False
-
     ctype = target.get("candidate_type", "skill_rule")
     promote_strategy = PROMOTE_TARGETS.get(ctype, "direct_append")
     filepath = target["_file"]
-
     print(f"\n[skill-tracker] Promoting {candidate_id} ({ctype})")
-
     success = False
     if promote_strategy == "direct_append":
         success = promote_direct_append(target, filepath)
@@ -268,20 +283,18 @@ def do_promote(candidate_id: str, confirm: bool = False) -> bool:
         success = promote_auto_sync(target, filepath)
     elif promote_strategy == "create_new":
         success = promote_create_new(target, filepath)
-
     if success:
         update_candidate_field(filepath, "status", "promoted")
         update_candidate_field(filepath, "promoted_at", datetime.now().strftime("%Y-%m-%d"))
-
-        # 写入 changelog
+        # 清除 auto_attach（已正式 promote，不再需要临时激活）
+        update_candidate_field(filepath, "auto_attach", "false")
         write_changelog_entry(target)
-
-        # 触发 test-sync（如果是 skill/hook 类型）
+        # 触发 test-sync
         if ctype in ("skill_rule", "hook_trigger", "hook_check"):
             target_file = target.get("target_file", "")
             skill_m = re.search(r"skills/([^/]+)/SKILL", target_file)
             hook_m = re.search(r"hooks/([^/]+)/HOOK", target_file)
-            sid = (skill_m or hook_m)
+            sid = skill_m or hook_m
             if sid:
                 print(f"\n  自动触发 test-sync...")
                 subprocess.run(
@@ -289,15 +302,12 @@ def do_promote(candidate_id: str, confirm: bool = False) -> bool:
                      "--skill", sid.group(1)],
                     check=False,
                 )
-
     return success
 
 
 def write_changelog_entry(data: dict):
-    """写入 skill-changelog.md"""
     if not CHANGELOG.exists():
         CHANGELOG.write_text("# Skill Changelog\n\n", encoding="utf-8")
-
     today = datetime.now().strftime("%Y-%m-%d")
     target = data.get("target_file", "unknown")
     rule = data.get("proposed_rule", "（未指定）")
@@ -305,7 +315,6 @@ def write_changelog_entry(data: dict):
     projects = data.get("validated_projects", [])
     if isinstance(projects, str):
         projects = [projects]
-
     entry = f"""
 ## {target} — {today}
 - 来源候选：`{cid}`
@@ -319,10 +328,11 @@ def write_changelog_entry(data: dict):
 
 
 # ── 子命令实现 ────────────────────────────────────────────────────────────────
+
 def cmd_candidates(args):
     candidates = load_all_candidates()
 
-    # 过滤
+    # 过滤条件
     if args.type and args.type != "all":
         candidates = [c for c in candidates if c.get("candidate_type") == args.type]
     if args.min_validated:
@@ -334,11 +344,18 @@ def cmd_candidates(args):
     if args.status:
         candidates = [c for c in candidates if c.get("status") == args.status]
 
+    # TASK-ANN-03: --auto-attach 过滤
+    if getattr(args, "auto_attach", False):
+        candidates = [c for c in candidates if str(c.get("auto_attach", "false")).lower() == "true"]
+
+    # TASK-ANN-03: --domain 过滤
+    if getattr(args, "domain", None):
+        candidates = [c for c in candidates if c.get("domain") == args.domain]
+
     if not candidates:
         print("  （无匹配候选）")
         return
 
-    # 按 status 分组
     pending = [c for c in candidates if c.get("status") == "pending_review"]
     approved = [c for c in candidates if c.get("status") == "approved"]
     promoted = [c for c in candidates if c.get("status") == "promoted"]
@@ -350,11 +367,13 @@ def cmd_candidates(args):
         print(f"\n  [待审核]")
         for c in pending:
             conf_icon = {"high": "🔴", "medium": "🟡", "low": "⚪"}.get(c.get("confidence", "low"), "⚪")
+            # TASK-ANN-03: 显示 auto_attach 状态
+            attach_icon = "📎" if str(c.get("auto_attach", "false")).lower() == "true" else "  "
             validated = c.get("validated_projects", [])
             vcount = len(validated) if isinstance(validated, list) else 1
-            print(f"  {conf_icon} {c.get('id','?'):<30} → {c.get('target_file','?')}")
+            print(f"  {conf_icon}{attach_icon} {c.get('id','?'):<30} → {c.get('target_file','?')}")
             print(f"      {c.get('proposed_rule','')[:55]}")
-            print(f"      验证项目数: {vcount}  |  类型: {c.get('candidate_type','?')}")
+            print(f"      验证项目数: {vcount}  |  类型: {c.get('candidate_type','?')}  |  auto_attach: {c.get('auto_attach','false')}")
 
     if approved:
         print(f"\n  [已批准，待 promote]")
@@ -383,7 +402,6 @@ def cmd_approve(args):
         sys.exit(1)
     update_candidate_field(target["_file"], "status", "approved")
     print(f"✅ {args.id} 已标记为 approved")
-    print(f"   执行 promote：python3 .claude/tools/skill-tracker/tracker.py promote {args.id}")
 
 
 def cmd_reject(args):
@@ -393,11 +411,11 @@ def cmd_reject(args):
         print(f"❌ 未找到候选：{args.id}")
         sys.exit(1)
     update_candidate_field(target["_file"], "status", "rejected")
+    # 拒绝时同时清除 auto_attach
+    update_candidate_field(target["_file"], "auto_attach", "false")
     if args.reason:
         content = target["_file"].read_text(encoding="utf-8")
-        target["_file"].write_text(
-            content + f"\nreject_reason: {args.reason}\n", encoding="utf-8"
-        )
+        target["_file"].write_text(content + f"\nreject_reason: {args.reason}\n", encoding="utf-8")
     print(f"✅ {args.id} 已标记为 rejected：{args.reason or '（无原因）'}")
 
 
@@ -410,6 +428,7 @@ def cmd_status(args):
     total = len(candidates)
     by_type = {}
     by_status = {}
+    attached = sum(1 for c in candidates if str(c.get("auto_attach", "false")).lower() == "true")
     for c in candidates:
         t = c.get("candidate_type", "unknown")
         s = c.get("status", "unknown")
@@ -418,7 +437,7 @@ def cmd_status(args):
 
     print(f"\n📊 候选库状态")
     print(f"{'─'*40}")
-    print(f"  总计：{total} 条")
+    print(f"  总计：{total} 条  |  临时激活 (auto_attach)：{attached} 条")
     print(f"\n  按状态：")
     for s, n in sorted(by_status.items()):
         print(f"    {s:<20} {n}")
@@ -427,31 +446,65 @@ def cmd_status(args):
         print(f"    {t:<30} {n}")
 
 
+# ── 主入口 ────────────────────────────────────────────────────────────────────
+
 def main():
-    parser = argparse.ArgumentParser(description="Skill Tracker — 框架改进候选管理")
+    parser = argparse.ArgumentParser(
+        description="Skill Tracker — 框架改进候选管理",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+用途:
+  管理 Meta-Skill Loop 生成的候选规则。attach/detach 配合 context-probe 实现
+  候选临时激活，消除从"发现"到"实用"的等待期。
+
+示例:
+  python3 tracker.py candidates --min-validated 2
+  python3 tracker.py attach HOOK_CAND_SDD-TINYHTTPD_001
+  python3 tracker.py candidates --auto-attach --status pending_review --domain network_code
+  python3 tracker.py detach HOOK_CAND_SDD-TINYHTTPD_001
+  python3 tracker.py approve HOOK_CAND_SDD-TINYHTTPD_001
+  python3 tracker.py promote HOOK_CAND_SDD-TINYHTTPD_001
+""",
+    )
     subparsers = parser.add_subparsers(dest="cmd")
 
     # candidates
     cand_p = subparsers.add_parser("candidates", help="查看候选列表")
     cand_p.add_argument("--type", default="all", help="候选类型过滤")
-    cand_p.add_argument("--min-validated", type=int, default=0, help="最少验证项目数")
+    cand_p.add_argument("--min-validated", type=int, default=0, dest="min_validated",
+                        help="最少验证项目数")
     cand_p.add_argument("--status", default=None, help="按状态过滤")
+    # TASK-ANN-03: 新增过滤参数
+    cand_p.add_argument("--auto-attach", action="store_true", dest="auto_attach",
+                        help="只显示 auto_attach: true 的候选")
+    cand_p.add_argument("--domain", default=None,
+                        help="按 domain 过滤（如 network_code、tdd_patterns）")
+
+    # TASK-ANN-03: attach / detach
+    att_p = subparsers.add_parser(
+        "attach",
+        help="将候选标记为 auto_attach: true（context-probe 会临时注入其规则）",
+    )
+    att_p.add_argument("id", help="候选 ID")
+    att_p.add_argument("--force", action="store_true",
+                       help="强制附加 confidence=low 的候选（不推荐）")
+
+    det_p = subparsers.add_parser("detach", help="取消候选的 auto_attach 标记")
+    det_p.add_argument("id", help="候选 ID")
 
     # validate
     val_p = subparsers.add_parser("validate", help="追加验证项目")
     val_p.add_argument("id", help="候选 ID")
     val_p.add_argument("--project", required=True, help="项目名称")
 
-    # approve
+    # approve / reject / promote
     app_p = subparsers.add_parser("approve", help="批准候选")
     app_p.add_argument("id", help="候选 ID")
 
-    # reject
     rej_p = subparsers.add_parser("reject", help="拒绝候选")
     rej_p.add_argument("id", help="候选 ID")
     rej_p.add_argument("--reason", default="", help="拒绝原因")
 
-    # promote
     pro_p = subparsers.add_parser("promote", help="提升候选到目标文件")
     pro_p.add_argument("id", help="候选 ID")
     pro_p.add_argument("--confirm", action="store_true", help="强制执行（跳过状态检查）")
@@ -463,6 +516,8 @@ def main():
 
     dispatch = {
         "candidates": cmd_candidates,
+        "attach": cmd_attach,
+        "detach": cmd_detach,
         "validate": cmd_validate,
         "approve": cmd_approve,
         "reject": cmd_reject,
@@ -474,7 +529,7 @@ def main():
         dispatch[args.cmd](args)
     else:
         parser.print_help()
-        sys.exit(1)
+        sys.exit(0)
 
 
 if __name__ == "__main__":

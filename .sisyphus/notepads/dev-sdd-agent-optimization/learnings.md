@@ -1,0 +1,1 @@
+2026-04-03 — FIX triage worked best when the helper treated sparse issue reports as a first-class degraded mode rather than an exception: keep the same `{status,message,data}` envelope and dual-option shape, but switch the option content from patch advice to context-gathering / observability steps whenever repro, expected behavior, or actual behavior is missing.

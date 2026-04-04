@@ -41,6 +41,7 @@ PROJECT_PATH: projects/structured-light-stereo
 ```
 
 > 切换项目：修改上方 PROJECT 字段，或使用 /project:switch
+> 工作启动：优先使用 /DEV_SDD:start-work（可选 `<project-name>`）统一加载上下文、判断续接状态并选择下一步动作
 
 ***
 

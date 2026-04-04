@@ -1,0 +1,49 @@
+{
+  "project": "partial-merge-project",
+  "created": "2026-04-03",
+  "batches": [
+    {
+      "name": "批次 1",
+      "description": "fixture",
+      "modules": [
+        {
+          "id": "T-001",
+          "name": "module_alpha",
+          "complexity": "M",
+          "risk": "",
+          "deps": [],
+          "state": "pending",
+          "completed_at": null
+        },
+        {
+          "id": "T-002",
+          "name": "module_beta",
+          "complexity": "M",
+          "risk": "",
+          "deps": [],
+          "state": "completed",
+          "completed_at": "2026-04-03"
+        },
+        {
+          "id": "T-003",
+          "name": "module_gamma",
+          "complexity": "M",
+          "risk": "",
+          "deps": [],
+          "state": "pending",
+          "completed_at": null
+        },
+        {
+          "name": "module_delta",
+          "complexity": "M",
+          "risk": "",
+          "deps": [
+            "module_beta"
+          ],
+          "state": "in_progress",
+          "completed_at": null
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "project": "skill-tests/fixtures/fix/sparse-project",
+  "title": "Intermittent stereo sync drift after recent changes",
+  "summary": "Users occasionally report that left/right frames stop lining up, but there is no stable reproduction, no captured timestamps, and no shared log excerpt yet.",
+  "symptoms": [
+    "Occasional frame misalignment"
+  ],
+  "module_hints": [
+    "sync_pipeline"
+  ]
+}

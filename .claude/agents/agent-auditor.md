@@ -39,7 +39,7 @@ python3 .claude/agents/agent-auditor-scan.py ${PROJECT}
 分析 plan.json 中 `state=skipped` 的模块，识别共同技术领域：
 - ≥2 个跳过模块涉及同一技术领域 → `planner_risk_dimension_missing` 候选
 
-### 维度3：Session 中断模式
+### 维度3：session 中断模式
 扫描 SESSION-END 块中的 `未完成` 字段：
 - 中断原因出现 ≥2 次 → `agent_constraint` 候选
 

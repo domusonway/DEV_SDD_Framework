@@ -51,7 +51,7 @@ python3 .claude/tools/skill-tracker/tracker.py promote <id>
 - confidence=medium（2 项目）→ 审查 proposed_diff 是否合理
 - confidence=low（1 项目）→ 需要明确判断，通常选择 Skip 等待更多验证
 
-### 拒绝标准
+### 拒绝标准 (reject)
 - proposed_diff 会破坏现有正确行为
 - 观察信号是偶然情况，非系统性问题
 - 与已有规则重复

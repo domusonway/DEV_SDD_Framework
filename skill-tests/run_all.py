@@ -31,7 +31,6 @@ REPORTS_DIR.mkdir(exist_ok=True)
 
 CASES_FILE = GENERATED_DIR / "cases.json"
 
-API_URL = "https://api.anthropic.com/v1/messages"
 _BASE = os.environ.get("ANTHROPIC_BASE_URL", "https://api.anthropic.com").rstrip("/")
 API_URL = f"{_BASE}/v1/messages"
 _API_KEY = os.environ.get("ANTHROPIC_AUTH_TOKEN") or os.environ.get("ANTHROPIC_API_KEY", "")
@@ -56,6 +55,13 @@ LAYER1_FILES = [
     "test_context_budget.py",
     # v3.1 新增：Meta-Skill Loop 全组件测试
     "test_meta_skill_loop.py",
+    "test_start_work_tool.py",
+    "test_redefine_tool.py",
+    "test_update_todo_tool.py",
+    "test_fix_tool.py",
+    "test_workflow_cli_contracts.py",
+    "test_workflow_drift_guards.py",
+    "test_workflow_migration_docs.py",
 ]
 
 ROUTING_SYSTEM = """
@@ -131,15 +137,16 @@ def judge(response, criterion):
 
 仅输出 JSON：{{"passed": true或false, "reason": "一句话原因"}}"""
     result = call_model(prompt, max_tokens=150)
+    result_text = result or ""
     try:
-        clean = result.strip().lstrip("```json").lstrip("```").rstrip("```").strip()
+        clean = result_text.strip().lstrip("```json").lstrip("```").rstrip("```").strip()
         d = json.loads(clean)
         return bool(d["passed"]), str(d.get("reason", ""))
     except Exception:
-        lower = result.lower()
+        lower = result_text.lower()
         if '"passed": true' in lower or '"passed":true' in lower:
-            return True, result
-        return False, f"无法解析: {result[:80]}"
+            return True, result_text
+        return False, f"无法解析: {result_text[:80]}"
 
 
 def load_cases(skill_filter=None):

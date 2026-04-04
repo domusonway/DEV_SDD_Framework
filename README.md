@@ -141,6 +141,9 @@ Meta-Skill Loop 候选 (memory/candidates/)
 ## 常用命令
 
 ```bash
+# 工作流启动
+/DEV_SDD:start-work [name]    # 统一加载上下文、判断续接状态并给出下一步动作
+
 # 项目管理
 /project:new <name>           # 从模板创建新项目
 /project:switch <name>        # 切换激活项目
@@ -152,11 +155,68 @@ Meta-Skill Loop 候选 (memory/candidates/)
 
 # 工具脚本
 python3 .claude/tools/plan-tracker/tracker.py status     # 查看项目进度
+python3 .claude/tools/start-work/run.py [name] --json    # /DEV_SDD:start-work 的辅助汇总 CLI
 python3 .claude/tools/skill-tracker/tracker.py candidates  # 查看待审核候选
 bash .claude/hooks/verify-rules/check.sh                 # 每日健康检查
 ```
 
+推荐把 `/DEV_SDD:start-work` 作为每次开始/恢复工作的统一入口；该命令可借助 `start-work/run.py` 输出 `{status,message,data}` 结构化摘要（上下文文件、session/handoff、模式、计划进度、next_action）。`/project:*` 命令继续承担项目创建、切换、验证与记忆管理等管理职责。
+
 ---
+
+## 迁移与发布指引
+
+### 责任边界
+
+- 根目录 `docs/*`：框架文档，只定义框架级规则和命令约定。
+- 项目 `docs/plan.json`：执行真相（execution truth），所有工作状态以它为准。
+- 项目 `docs/PLAN.md`：由 `plan.json` 派生的可读视图，供人查看，不作为真相源。
+- 项目 `docs/TODO.md`：项目本地笔记 / 审计 / 管理视图，可编辑，但不是 truth source。
+
+### 推荐命令流
+
+按这个顺序走，避免计划和 TODO 漂移：
+
+1. `INIT`：初始化项目结构和 ownership。
+2. `REDEFINE`：重写规则、边界和 source-of-truth 定义。
+3. `UPDATE_TODO`：把用户变更合并到项目本地 TODO 视图。
+4. `START_WORK`：按 `plan.json`、session、handoff 恢复上下文。
+5. `FIX`：先完成问题分诊（triage），再输出 `minimal_change` / `comprehensive_change` 两档修复方案供执行。
+
+`REDEFIND` 仅是 `REDEFINE` 的兼容别名；迁移期可以接受，正式文档和新流程只使用 `REDEFINE`。
+
+### 迁移建议
+
+- **框架维护者**：先把 root `docs/*` 统一改成框架文档语义，再同步命令说明，确保 `plan.json`、`PLAN.md`、`TODO.md` 的职责不重叠。
+- **新项目 / 模板用户**：创建项目后，直接把 `docs/plan.json` 作为唯一执行入口，`PLAN.md` 和 `TODO.md` 只做派生展示和本地管理。
+- **从 markdown-first 迁移的老项目**：先保留旧 TODO/PLAN 作为只读参考，再把最新状态回填到 `plan.json`，最后切换到 `START_WORK` 驱动续接，避免双写。
+
+### TODO 稳定 ID 迁移（必做）
+
+- 目标格式：`docs/TODO.md` 必须包含 `<!-- DEV_SDD:MANAGED:BEGIN --> ... <!-- DEV_SDD:MANAGED:END -->` 管理区，并使用 `DEV_SDD:TASK:id=...` 元数据行。
+- 稳定 ID 来源：以 `docs/plan.json` 为准（每个模块持久化 `id`，如 `T-001`）。
+- 推荐迁移路径：先执行 `INIT` 或 `REDEFINE` 生成/重建 `plan.json` 与 managed TODO，再执行 `UPDATE_TODO` 做后续增量同步。
+- 兼容说明：旧版无管理区 TODO 仅作为迁移输入；进入 managed 模式后，`START_WORK` / `UPDATE_TODO` 才能进行可靠对账与按 ID 更新。
+
+### 回滚 / fallback
+
+- 如果迁移中出现状态不一致，先回滚到上一个稳定 `plan.json` 快照，再重新生成 `PLAN.md` 和 `TODO.md`。
+- 如果新命令还没全量接入，先用 `START_WORK` + `FIX` 保持执行，旧 markdown 只能作为 fallback 参考，不得重新变成 truth source。
+
+### 迁移后验证
+
+执行这些检查，确认 ownership 和流程已经收敛：
+
+```bash
+python3 .claude/tools/start-work/run.py <name> --json
+python3 .claude/tools/plan-tracker/tracker.py status
+python3 - <<'PY'
+from pathlib import Path
+print(Path('projects/<PROJECT>/docs/plan.json').exists())
+PY
+```
+
+确认点：`plan.json` 为准，`PLAN.md` 为派生，`TODO.md` 为管理视图，命令流按 `INIT → REDEFINE → UPDATE_TODO → START_WORK → FIX` 运行。
 
 ## Hook 触发规则
 

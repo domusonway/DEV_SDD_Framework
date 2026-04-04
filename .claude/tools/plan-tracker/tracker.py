@@ -4,7 +4,7 @@ plan-tracker/tracker.py
 结构化进度追踪工具，替代纯 markdown PLAN.md 的手动维护
 
 JSON plan 文件: projects/<PROJECT>/docs/plan.json
-Markdown PLAN.md 由此工具自动生成（只读，不要手动编辑）
+Markdown PLAN.md 由此工具自动生成（generated read-only view，不要手动编辑）
 
 用途:
   追踪项目模块实现进度，输出结构化状态供 Agent 工具调用判断下一步行动。
@@ -31,6 +31,7 @@ import json
 import argparse
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 
 def find_project_root() -> Path:
@@ -52,20 +53,20 @@ def get_project_name(root: Path) -> str:
     return os.environ.get("PROJECT", "unknown")
 
 
-def load_plan(root: Path, project: str) -> dict:
+def load_plan(root: Path, project: str) -> dict[str, Any]:
     plan_path = root / "projects" / project / "docs" / "plan.json"
     if not plan_path.exists():
         raise FileNotFoundError(f"plan.json 不存在: {plan_path}\n请先创建 plan.json（参见模板）")
     return json.loads(plan_path.read_text(encoding="utf-8"))
 
 
-def save_plan(root: Path, project: str, plan: dict):
+def save_plan(root: Path, project: str, plan: dict[str, Any]):
     plan_path = root / "projects" / project / "docs" / "plan.json"
     plan_path.write_text(json.dumps(plan, ensure_ascii=False, indent=2))
 
 
-def render_markdown(root: Path, project: str, plan: dict):
-    """从 plan.json 生成 PLAN.md（只读视图）"""
+def render_markdown(root: Path, project: str, plan: dict[str, Any]):
+    """从 plan.json 生成 PLAN.md（generated read-only view）"""
     md_path = root / "projects" / project / "docs" / "PLAN.md"
     lines = [
         f"# {plan.get('project', project)} · 实现计划",
@@ -100,7 +101,7 @@ def render_markdown(root: Path, project: str, plan: dict):
     print(f"[plan-tracker] ✅ PLAN.md 已更新 ({completed}/{total} 完成)")
 
 
-def _compute_next_action(plan: dict) -> str:
+def _compute_next_action(plan: dict[str, Any]) -> str:
     """计算当前最高优先级的未完成模块名（按批次顺序）。"""
     for batch in plan.get("batches", []):
         for module in batch.get("modules", []):

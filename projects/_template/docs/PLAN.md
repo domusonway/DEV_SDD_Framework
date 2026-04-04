@@ -2,6 +2,10 @@
 
 ***
 
+> ⚠️ 此文件是项目 `docs/plan.json` 的派生/生成视图，用于人类阅读；执行状态以 `plan.json` 为准，请勿把本文件当作权威状态源。
+
+> 如需刷新此视图，运行 `python3 .claude/tools/plan-tracker/tracker.py render`。
+
 ## 实现批次（由 Planner Agent 生成或手动规划）
 
 ### 批次 1（基础模块）
@@ -44,4 +48,3 @@
 | 风险          | 可能性 | 影响 | 应对             |
 | ----------- | --- | -- | -------------- |
 | {{RISK\_1}} | 中   | 高  | {{MITIGATION}} |
-

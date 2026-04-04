@@ -1,0 +1,44 @@
+{
+  "project": "repro-project",
+  "created": "2026-04-03",
+  "batches": [
+    {
+      "name": "批次 1",
+      "description": "core calibration flow",
+      "modules": [
+        {
+          "id": "T-001",
+          "name": "calibration",
+          "complexity": "M",
+          "risk": "校准结果是下游共享依赖",
+          "deps": [],
+          "state": "in_progress",
+          "completed_at": null
+        },
+        {
+          "id": "T-002",
+          "name": "stripe_matching",
+          "complexity": "M",
+          "risk": "依赖 calibration 输出完整性",
+          "deps": [
+            "calibration"
+          ],
+          "state": "pending",
+          "completed_at": null
+        },
+        {
+          "id": "T-003",
+          "name": "reconstruction_3d",
+          "complexity": "M",
+          "risk": "依赖匹配质量和校准准确性",
+          "deps": [
+            "calibration",
+            "stripe_matching"
+          ],
+          "state": "pending",
+          "completed_at": null
+        }
+      ]
+    }
+  ]
+}

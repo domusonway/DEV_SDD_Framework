@@ -1,44 +1,75 @@
-# {{PROJECT\_NAME}} · 任务跟踪
+# DEV SDD Framework · Framework TODO
 
-***
+---
 
-## 进行中
+## Purpose
 
-- [ ] {{CURRENT\_TASK}}
+This document is the **framework-level TODO and backlog guide** for DEV SDD itself.
+It tracks framework maintenance, documentation debt, workflow improvements, and follow-up work that affects the shared framework.
 
-***
+It is **not** the active runtime queue for any concrete project.
 
-## 待办/问题
+---
 
-- [ ] 第一个版本基于Opencode编码的内容为opencode-test-v1，结合项目开发结果，仔细反思该SDD框架存在什么问题，并将报告存入reports目录下
-- [ ] project下的memory，缺少项目本身结构化记忆
-- [ ] 未验证skill-tests
-- [ ] 检查skill-tests是否包含hook、agent等等其他技能验证
-- [ ] command安装脚本：根据不同工具的command规则，编写对应安装脚本。并同步我仓库下的commands信息（.claude/commands），可以先编写claude code和opencode的安装（opencode说明为[命令 | OpenCode](https://opencode.ai/docs/zh-cn/commands/) ）
-- [ ] Project下项目的plan.md，并没有引导更新，检查SDD框架为什么没有引导
-- [ ] 编写 框架lint（通用）
-- [ ] 编写 框架lint（项目）
-- [ ] 在 框架下编写格式模板、以及格式化检查钩子（如果没有的话）
-- [ ] 目前的测试项目projects/structured-light-stereo整个实现 过程，竟然无记忆沉淀，这不太对，与预期不符。在分析到具体问题后，可以考虑增加基于对话内容，以及同一问题重试次数跟踪，分析，进而充分沉淀有意义的记忆
-- [ ] 目前测试项目projects/structured-light-stereo的module内容只写了很简单的测试代码，不是真正可以运行的
-- [ ] <br />
+## Scope Boundary
 
-  &#x20;
+### Root `docs/TODO.md` = framework backlog
 
-***
+Use this file for framework-facing work such as:
+- framework documentation cleanup
+- command / hook / agent workflow improvements
+- skill-test coverage gaps for the framework
+- template and generator quality issues
+- cross-project maintenance follow-ups
 
-## 已完成
+This file should describe backlog items and execution guidance for the framework, not day-to-day delivery state for an active project.
 
-<!-- 完成后移入此区 -->
+### `projects/<PROJECT>/docs/TODO.md` = project TODO
 
-***
+Use `projects/<PROJECT>/docs/TODO.md` for project-scoped execution notes when a specific project needs a human-readable TODO view.
 
-## STUCK 记录
+Project TODOs may contain runtime-oriented records such as:
+- current delivery follow-ups
+- temporary execution notes
+- structured `[STUCK]` records required by hooks or recovery flows
+- skip reasons or other project-local audit notes
 
-<!-- stuck-detector 触发时在此记录 -->
+Those project TODO records belong in the project space, not in the root framework TODO.
 
-***
+---
 
-## 已知问题
+## Relationship to Other Sources of Truth
 
-<!-- 发现但暂不修复的问题 -->
+- Root `docs/TODO.md` does **not** own active-project execution state.
+- For active project work, `projects/<PROJECT>/docs/plan.json` remains the execution source of truth.
+- A project TODO may summarize local work or hold structured records, but it does not override project execution data.
+- Root docs define governance and backlog semantics; projects own execution details.
+
+---
+
+## Framework TODO Usage Rules
+
+When updating this file:
+
+1. Keep entries framework-scoped.
+2. Do not place active-project task queues here.
+3. Do not copy template placeholders into this file.
+4. Do not leave HTML residue or generator noise.
+5. If a workflow requires `[STUCK]` logging, record it in the relevant project TODO, not here.
+
+---
+
+## Framework Backlog
+
+- Review framework command and agent ownership boundaries for consistency with root docs.
+- Improve framework-generated project artifacts so root/project document semantics do not drift.
+- Expand framework skill-tests for TODO/STUCK ownership expectations where needed.
+- Track framework maintenance work that affects reusable hooks, skills, templates, or validation tooling.
+
+---
+
+## Notes
+
+- Root TODO = framework backlog and framework execution guidance.
+- Project TODO = `projects/<PROJECT>/docs/TODO.md` for project-local execution notes.
+- Structured project records such as `[STUCK]` notes remain valid in project TODOs when required by hooks.

@@ -44,6 +44,9 @@
       "// ── plan-tracker 工具 ────────────────────────────────────",
       "Bash(python3 .claude/tools/plan-tracker/tracker.py *)",
 
+      "// ── start-work 辅助工具（Phase 2）──────────────────────",
+      "Bash(python3 .claude/tools/start-work/run.py *)",
+
       "// ── skill-tracker 工具（新增，Meta-Skill Loop）──────────",
       "Bash(python3 .claude/tools/skill-tracker/tracker.py *)",
 

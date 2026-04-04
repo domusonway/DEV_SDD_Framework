@@ -1,0 +1,14 @@
+# conflict-project · 任务跟踪
+
+> ⚠️ 执行状态以 `docs/plan.json` 为准；此文件仅记录项目级备注、审计和人工跟进。
+
+<!-- DEV_SDD:MANAGED:BEGIN -->
+- [x] module_alpha <!-- DEV_SDD:TASK:id=T-001;name=module_alpha;state=completed -->
+- [ ] module_beta <!-- DEV_SDD:TASK:id=T-002;name=module_beta;state=pending -->
+- [ ] module_gamma (manual tweak) <!-- DEV_SDD:TASK:id=T-003;name=module_gamma;state=pending -->
+<!-- DEV_SDD:MANAGED:END -->
+
+<!-- DEV_SDD:USER_NOTES:BEGIN -->
+## 用户备注
+- keep me
+<!-- DEV_SDD:USER_NOTES:END -->

@@ -1,0 +1,25 @@
+{
+  "project": "skill-tests/fixtures/fix/repro-project",
+  "title": "Calibration accepts incomplete camera params and breaks downstream consumers",
+  "summary": "A reproducible calibration issue lets incomplete camera parameters pass into laser-plane fitting. The failure then appears later in downstream matching and reconstruction instead of stopping at the calibration boundary.",
+  "symptoms": [
+    "Non-finite plane coefficients appear after calibration",
+    "stripe_matching receives an invalid CalibrationResult"
+  ],
+  "expected_behavior": "Calibration should reject incomplete camera parameters before fitting the laser surface.",
+  "actual_behavior": "The workflow continues with invalid calibration data and only fails after downstream modules consume it.",
+  "reproduction_steps": [
+    "Load a calibration payload with missing intrinsic matrix values.",
+    "Run calibrate_laser_planes.",
+    "Observe downstream mismatch or reconstruction failure instead of an early validation error."
+  ],
+  "module_hints": [
+    "calibration"
+  ],
+  "file_hints": [
+    "sls/calibration.py",
+    "tests/test_calibration.py"
+  ],
+  "suspected_impact": "The fault originates in calibration but can regress stripe_matching and reconstruction_3d because all downstream consumers trust CalibrationResult.",
+  "log_excerpt": "ValueError: non-finite plane coefficients"
+}

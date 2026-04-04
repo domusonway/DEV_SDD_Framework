@@ -1,0 +1,30 @@
+{
+  "project": "plan-change-project",
+  "created": "2026-04-01",
+  "batches": [
+    {
+      "name": "批次 1",
+      "description": "历史版本",
+      "modules": [
+        {
+          "name": "capture_context",
+          "complexity": "M",
+          "risk": "",
+          "deps": [],
+          "state": "completed",
+          "completed_at": "2026-04-01"
+        },
+        {
+          "name": "legacy_sync",
+          "complexity": "M",
+          "risk": "",
+          "deps": [
+            "capture_context"
+          ],
+          "state": "pending",
+          "completed_at": null
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "project": "existing-docs-project",
+  "batches": [
+    {
+      "name": "Legacy Batch",
+      "modules": [
+        {
+          "name": "legacy-module",
+          "state": "completed"
+        }
+      ]
+    }
+  ]
+}

@@ -58,6 +58,12 @@ def out(payload: dict[str, Any], as_json: bool) -> None:
     print(f"confidence: {triage.get('confidence', 'unknown')}")
     print(f"reproducibility: {triage.get('reproducibility', 'unknown')}")
     print(f"triage: {triage.get('summary', '无')}")
+    # 环境状态
+    env_info = data.get('environment', {})
+    if env_info:
+        env_status = env_info.get('status', 'unknown')
+        env_icon = {"not_found": "📁", "exists_not_activated": "🔧", "activated": "🟢"}.get(env_status, "❓")
+        print(f"环境: {env_icon} {env_info.get('detail', '')}")
     for name in ["minimal_change", "comprehensive_change"]:
         option = options.get(name) or {}
         print(f"{name}: {option.get('summary', '无')}")
@@ -342,6 +348,60 @@ def load_project_context(project_root: Path) -> dict[str, Any]:
         "module_names": module_names,
         "sources": sources,
     }
+
+
+def check_environment_status(project_root: Path | None) -> tuple[str, str]:
+    """Check if env/ directory exists and if virtual environment is activated.
+    
+    Returns a tuple of (status, detail) where status is one of:
+    - "not_found": env/ directory does not exist
+    - "exists_not_activated": env/ directory exists but venv not activated
+    - "activated": project's virtual environment is currently activated
+    """
+    if project_root is None:
+        return "not_found", "未检测到项目目录，无法检查环境"
+    
+    env_dir = project_root / "env"
+    if not env_dir.exists():
+        return "not_found", "未找到 env/ 目录，请先运行 /DEV_SDD:init 初始化项目"
+    
+    # 检查是否在虚拟环境中
+    import sys
+    import platform
+    is_virtual_env = hasattr(sys, 'real_prefix') or (hasattr(sys, 'base_prefix') and sys.base_prefix != sys.prefix)
+    
+    if is_virtual_env:
+        # 已经在虚拟环境中
+        # 进一步检查是否是项目的env目录
+        try:
+            # 获取当前虚拟环境的路径
+            if hasattr(sys, 'base_prefix'):
+                venv_path = Path(sys.base_prefix)
+            else:
+                venv_path = Path(sys.prefix)
+            
+            # 检查是否是项目的env目录
+            if venv_path.resolve() == env_dir.resolve():
+                return "activated", f"已进入项目虚拟环境: {env_dir}"
+            else:
+                # 在其他虚拟环境中，提供切换到项目环境的指导
+                system = platform.system().lower()
+                if system == "windows":
+                    activate_cmd = f".\\env\\Scripts\\activate"
+                else:  # Linux/macOS
+                    activate_cmd = f"source env/bin/activate"
+                return "exists_not_activated", f"当前在其他虚拟环境中。请先退出当前环境 (deactivate)，然后执行: {activate_cmd}"
+        except Exception:
+            # 如果出现异常，保守地报告存在但未确认激活
+            return "exists_not_activated", f"env/ 目录存在 ({env_dir})，激活状态未知。请参考 env/README.md"
+    else:
+        # 不在虚拟环境中，提供激活指导
+        system = platform.system().lower()
+        if system == "windows":
+            activate_cmd = f".\\env\\Scripts\\activate"
+        else:  # Linux/macOS
+            activate_cmd = f"source env/bin/activate"
+        return "exists_not_activated", f"env/ 目录存在但未激活。请执行: {activate_cmd}"
 
 
 def load_project_memory(project_root: Path) -> dict[str, Any]:
@@ -631,6 +691,9 @@ def run(issue_arg: str, dry_run: bool) -> dict[str, Any]:
 
     message = f"FIX triage 已生成：{project_display} | confidence={triage.get('confidence')} | repro={triage.get('reproducibility')}"
 
+    # 环境状态检查
+    env_status, env_detail = check_environment_status(project_root)
+    
     return {
         "status": status,
         "message": message,
@@ -645,6 +708,10 @@ def run(issue_arg: str, dry_run: bool) -> dict[str, Any]:
             "triage": triage,
             "options": options,
             "memory_follow_up": memory_follow_up,
+            "environment": {
+                "status": env_status,
+                "detail": env_detail
+            }
         },
     }
 

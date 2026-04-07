@@ -409,6 +409,81 @@ def render_readme(project_name: str, goal: str, background: str, modules: list[d
     return "\n".join(lines)
 
 
+def render_env_readme(project_name: str) -> str:
+    """Generate env/README.md content."""
+    lines = [
+        f"# {project_name} - 运行环境说明",
+        "",
+        "本目录用于隔离项目依赖，避免污染系统环境。",
+        "",
+        "## 环境初始化",
+        "",
+        "1. 创建虚拟环境（推荐使用 Python 3.10+）：",
+        "   ```bash",
+        "   python3 -m venv env",
+        "   ```",
+        "",
+        "2. 激活虚拟环境：",
+        "   - Linux/macOS:",
+        "     ```bash",
+        "     source env/bin/activate",
+        "     ```",
+        "   - Windows (PowerShell):",
+        "     ```powershell",
+        "     .\\env\\Scripts\\Activate.ps1",
+        "     ```",
+        "   - Windows (cmd.exe):",
+        "     ```cmd",
+        "     .\\env\\Scripts\\activate.bat",
+        "     ```",
+        "",
+        "3. 安装依赖：",
+        "   ```bash",
+        "   pip install -r requirements.txt",
+        "   ```",
+        "",
+        "## 依赖管理",
+        "",
+        "- 所有项目依赖应声明在 `env/requirements.txt` 中",
+        "- 使用 `pip freeze > env/requirements.txt` 更新依赖锁定文件",
+        "- 开发依赖（如测试框架、lint工具）可放在 `env/dev-requirements.txt` 或使用 extras_require",
+        "",
+        "## 环境迁移",
+        "",
+        "该目录已加入 `.gitignore`，不会被提交到版本控制系统。",
+        "新开发者需按上述步骤重新创建本地环境。",
+        "",
+        "> ⚠️ 请勿直接在系统Python环境中安装项目依赖，以免造成版本冲突和环境污染。",
+    ]
+    return "\n".join(lines)
+
+
+def render_env_requirements() -> str:
+    """Generate env/requirements.txt content."""
+    # 基础依赖 - 根据框架需求提供常用依赖模板
+    lines = [
+        "# DEV SDD Framework 项目依赖",
+        "# 根据实际项目需求添加具体依赖包",
+        "",
+        "# 框架核心依赖（根据项目语言选择）",
+        "# 例如：",
+        "# requests>=2.25.0  # HTTP客户端",
+        "# pyyaml>=5.4.0     # YAML解析",
+        "#",
+        "# 测试相关（根据项目测试框架添加）",
+        "# pytest>=6.0.0         # 测试框架",
+        "# pytest-cov>=2.10.0    # 覆盖率报告",
+        "#",
+        "# 代码质量工具",
+        "# flake8>=3.8.0         # linting",
+        "# black>=21.0.0         # 代码格式化",
+        "# mypy>=0.8.0           # 类型检查（Python项目）",
+        "",
+        "# 实际项目请根据 SPEC.md 中的技术栈声明添加具体依赖",
+    ]
+    return "\n".join(lines)
+
+
 def diff_preview(old: str, new: str, fromfile: str, tofile: str, limit: int = 60) -> list[str]:
     lines = list(difflib.unified_diff(
         old.splitlines(),
@@ -458,6 +533,8 @@ def build_init_spec(target_root: Path) -> InitSpec:
         "docs/plan.json": json.dumps(plan, ensure_ascii=False, indent=2) + "\n",
         "docs/PLAN.md": render_plan_markdown(plan),
         "docs/TODO.md": managed_todo,
+        "env/README.md": render_env_readme(project_name),
+        "env/requirements.txt": render_env_requirements(),
     }
     return InitSpec(
         project_name=project_name,

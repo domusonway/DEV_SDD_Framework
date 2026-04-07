@@ -36,8 +36,8 @@ Step 3: 输出确认语：
 ## 当前激活项目
 
 ```
-PROJECT: structured-light-stereo
-PROJECT_PATH: projects/structured-light-stereo
+PROJECT: VQA_server
+PROJECT_PATH: projects/VQA_server
 ```
 
 > 切换项目：修改上方 PROJECT 字段，或使用 /project:switch
@@ -51,9 +51,10 @@ PROJECT_PATH: projects/structured-light-stereo
 2. **TDD驱动，根据BRIEF.md或SPEC.md编写测试代码，再进行开发**
 3. **测试失败只改实现** — 禁止修改断言、禁止 skip，测试是规格的唯一表达
 4. 每个功能的对应实现代码，不能是dummy，必须是能运行，保证功能与需求符合、且性能最佳
-5. **关注memory沉淀的相关规则和管线**
+5. **关注并执行 memory 沉淀的相关规则和管线**
 6. **【新增】每个决策节点产出 CHECKPOINT，对话结束前产出 SESSION-END**
 7. **【新增】项目交付后激活 Meta-Skill Loop，生成框架改进候选供人工审核**
+8. **【新增】任何 implement / fix / refactor 在 GREEN + VALIDATE 后，必须输出 Sedimentation Decision**：`no_sedimentation | project_memory | framework_candidate` 三选一，并给出一句理由；若非 `no_sedimentation`，必须立即写入项目 memory 或候选草稿
 
 ***
 
@@ -67,7 +68,7 @@ PROJECT_PATH: projects/structured-light-stereo
 | TDD 实现阶段           | `.claude/skills/tdd-cycle/SKILL.md`          |
 | 出现 Bug / RED > 2 次 | `.claude/skills/diagnose-bug/SKILL.md`       |
 | 所有测试 GREEN 后       | `.claude/skills/validate-output/SKILL.md`    |
-| 项目完成后              | `.claude/skills/memory-update/SKILL.md`      |
+| 任何 fix/implement/refactor 完成验证后 | `.claude/skills/memory-update/SKILL.md`      |
 | 涉及 HTTP 协议         | `memory/domains/http/INDEX.md`               |
 | 涉及 asyncio/异步网络    | `memory/domains/concurrency/INDEX.md`        |
 | 涉及 bytes/str 错误    | `memory/domains/type_safety/INDEX.md`        |
@@ -98,7 +99,7 @@ PROJECT_PATH: projects/structured-light-stereo
 | ------------------------- | ------------------- | --------------------- |
 | 写任何含 recv/send/socket 代码后 | `network-guard`     | MEM\_F\_C\_004/005 验证 |
 | RED 状态连续超过 2 次            | `stuck-detector`    | 防止在错误方向无限循环           |
-| 所有测试变 GREEN               | `post-green`        | 触发验证 + 记忆沉淀判断 + hook-observer |
+| 所有测试变 GREEN               | `post-green`        | 触发验证 + Sedimentation Decision + hook-observer |
 | 任意决策完成 / 对话结束前            | `session-snapshot`  | 过程记录不依赖流程走完           |
 | **项目交付后（新增）**             | `hook-observer`     | 检测 Hook 触发健康度          |
 | **项目交付后（新增）**             | `permission-auditor`| 检测权限边界健康度             |

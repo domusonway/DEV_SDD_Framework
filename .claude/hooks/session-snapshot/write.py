@@ -6,7 +6,7 @@ session-snapshot write.py
 用法:
   python3 write.py start "<task>"
   python3 write.py checkpoint "<event>" "<result>" "<state>"
-  python3 write.py end "<completed>" "<interrupted>" "<next_step>"
+  python3 write.py end "<completed>" "<interrupted>" "<next_step>" ["<decision>"] ["<memory_action>"]
 
 PROJECT 从环境变量或 CLAUDE.md 读取。
 """
@@ -122,7 +122,13 @@ def cmd_checkpoint(event: str, result: str, state: str):
     print(f"[session-snapshot] ✅ 检查点已写入: {filepath.name}")
 
 
-def cmd_end(completed: str, interrupted: str, next_step: str):
+def cmd_end(
+    completed: str,
+    interrupted: str,
+    next_step: str,
+    decision: str = "no_sedimentation",
+    memory_action: str = "无",
+):
     root = find_project_root()
     project = get_project_name(root)
     session_dir = get_session_dir(root, project)
@@ -146,7 +152,8 @@ def cmd_end(completed: str, interrupted: str, next_step: str):
 完成了: {completed}
 未完成: {interrupted}
 下次继续: {next_step}
-记忆候选: 无
+沉淀决策: {decision}
+记忆动作: {memory_action}
 [/SESSION-END]
 """
     # 追加 session-end
@@ -206,7 +213,9 @@ def main():
         completed = sys.argv[2] if len(sys.argv) > 2 else "未记录"
         interrupted = sys.argv[3] if len(sys.argv) > 3 else "无"
         next_step = sys.argv[4] if len(sys.argv) > 4 else "待定"
-        cmd_end(completed, interrupted, next_step)
+        decision = sys.argv[5] if len(sys.argv) > 5 else "no_sedimentation"
+        memory_action = sys.argv[6] if len(sys.argv) > 6 else "无"
+        cmd_end(completed, interrupted, next_step, decision, memory_action)
 
     elif cmd == "list":
         cmd_list()

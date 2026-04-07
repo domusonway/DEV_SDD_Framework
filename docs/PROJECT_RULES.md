@@ -75,7 +75,8 @@
 完成了: <本次完成的具体内容>
 未完成: <中断点，正在做什么的第几步>
 下次继续: <明确的下一个动作，一句话>
-记忆候选: <值得写入 memory 的经验，无则写"无">
+沉淀决策: <no_sedimentation | project_memory | framework_candidate>
+记忆动作: <更新的 memory 文件 / candidate 路径 / 无>
 [/SESSION-END]
 ```
 
@@ -95,15 +96,25 @@
 
 ---
 
-### 规则五：记忆写入标准
+### 规则五：沉淀决策不可静默跳过
 
-只有以下情况才写入 memory（宁少勿滥）：
-- 解决了 RED > 2 次的 Bug（必须写）
-- 做出了非显而易见的设计决策（建议写）
-- 发现了 SPEC 歧义或错误（建议写）
-- 发现现有 memory 条目有误（必须更新）
+任何 implement / fix / refactor 在 GREEN 或验收完成后，必须在【当前回复末尾】追加：
 
-不应写入：显而易见的知识、单次偶然问题、已有 memory 完全覆盖的内容。
+```
+[SEDIMENTATION]
+decision: no_sedimentation | project_memory | framework_candidate
+reason: <一句话原因>
+action: <更新路径 / 候选路径 / 无>
+[/SEDIMENTATION]
+```
+
+若 `decision = no_sedimentation`，必须使用以下原因之一：
+- trivial_mechanical_change
+- duplicate_known_pattern
+- no_reusable_lesson
+- already_captured_elsewhere
+
+只有 RED > 2 次 Bug、非显而易见设计决策、SPEC 歧义/错误、或发现 memory 条目失真时，才应进入 `project_memory` 或 `framework_candidate`。
 
 ---
 

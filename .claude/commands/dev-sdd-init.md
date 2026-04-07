@@ -26,6 +26,7 @@
 - `CLAUDE.md` ← 项目入口与加载地图
 - `AGENTS.md` ← 指向项目 `CLAUDE.md`
 - `README.md` ← 项目简介与初始化约定
+- `env/` ← 运行环境目录，包含 `README.md` 和 `requirements.txt`
 
 ## 执行步骤
 1. 解析目标项目：

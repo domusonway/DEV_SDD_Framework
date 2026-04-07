@@ -73,7 +73,8 @@ task: <用户描述的任务，若未知写"待明确">
 完成了: <本次完成的具体内容，按模块列出>
 未完成: <明确的中断点，"正在做 XXX 的第 N 步">
 下次继续: <一句话，明确的下一个动作>
-记忆候选: <值得写入 memory 的经验，无则写"无">
+沉淀决策: <no_sedimentation | project_memory | framework_candidate>
+记忆动作: <更新的 memory 文件 / candidate 路径 / 无>
 [/SESSION-END]
 
 ---
@@ -95,7 +96,7 @@ python3 .claude/hooks/session-snapshot/write.py start "<task>"
 python3 .claude/hooks/session-snapshot/write.py checkpoint "<event>" "<result>" "<state>"
 
 # 写入 session-end
-python3 .claude/hooks/session-snapshot/write.py end "<completed>" "<interrupted>" "<next>"
+python3 .claude/hooks/session-snapshot/write.py end "<completed>" "<interrupted>" "<next>" "<decision>" "<memory_action>"
 ```
 
 ---

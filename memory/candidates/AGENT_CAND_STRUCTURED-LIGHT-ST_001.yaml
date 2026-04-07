@@ -1,0 +1,30 @@
+id: AGENT_CAND_STRUCTURED-LIGHT-ST_001
+candidate_type: agent_constraint
+source_observer: agent-auditor
+source_project: structured-light-stereo
+observed_evidence: |
+  During the 2026-04-04 calibration contract fix, code and tests reached closure before any memory sedimentation happened, even though DEV_SDD treats self-evolution as a core loop. The session then required a manual correction: add project memory P_SLS_001 and retrofit AGENTS.md, PROJECT_RULES.md, memory-update, post-green, and session-snapshot so sedimentation decisions can no longer be silently skipped.
+observed_pattern_key: "agent-auditor:sedimentation-decision-missing:AGENTS.md"
+proposed_rule: "Every implement/fix/refactor must emit an explicit Sedimentation Decision after GREEN + VALIDATE; if the decision is not no_sedimentation, it must immediately create project memory or a framework candidate draft."
+target_file: AGENTS.md
+proposed_diff: |
+  Add a framework-level mandatory rule in AGENTS.md requiring an explicit Sedimentation Decision after GREEN + VALIDATE.
+
+  Synchronize the operational surfaces so the rule is enforceable rather than advisory:
+  - docs/PROJECT_RULES.md: require a [SEDIMENTATION] block in completion replies.
+  - .claude/skills/memory-update/SKILL.md: move sedimentation from project-end-only to every completed implement/fix/refactor loop.
+  - .claude/hooks/post-green/HOOK.md and run.sh: require the decision at post-green time.
+  - .claude/hooks/session-snapshot/HOOK.md and write.py: store decision + memory action in SESSION-END.
+
+  Note: these framework edits were already applied directly in this session; this candidate is retained as a retroactive audit trail for later /project:skill-review confirmation.
+confidence: low
+validated_projects:
+  - structured-light-stereo
+status: pending_review
+auto_attach: false
+auto_attach_triggered_projects: []
+auto_attach_issues: []
+created: 2026-04-04
+domain: agent_workflow
+secondary_target: docs/PROJECT_RULES.md
+failure_count: 1

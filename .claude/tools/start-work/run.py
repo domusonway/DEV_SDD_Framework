@@ -61,6 +61,12 @@ def out(payload: dict[str, Any], as_json: bool) -> None:
     print(f"Session: {data.get('session', {}).get('state', 'unknown')}")
     print(f"模式: {data.get('mode', {}).get('detected', 'unknown')}")
     print(f"计划: {data.get('plan', {}).get('summary', '无可用计划信息')}")
+    # 环境状态
+    env_info = data.get('environment', {})
+    if env_info:
+        env_status = env_info.get('status', 'unknown')
+        env_icon = {"not_found": "📁", "exists_not_activated": "🔧", "activated": "🟢"}.get(env_status, "❓")
+        print(f"环境: {env_icon} {env_info.get('detail', '')}")
     print(f"下一步: {data.get('next_action', '请先补齐项目上下文')}")
     print("[/START-WORK]")
 
@@ -253,6 +259,60 @@ def _sort_warnings(warnings: list[dict[str, Any]]) -> list[dict[str, Any]]:
         int(item.get("line") or 0),
         str(item.get("detail") or ""),
     ))
+
+
+def check_environment_status(project_root: Path | None) -> tuple[str, str]:
+    """Check if env/ directory exists and if virtual environment is activated.
+    
+    Returns a tuple of (status, detail) where status is one of:
+    - "not_found": env/ directory does not exist
+    - "exists_not_activated": env/ directory exists but venv not activated
+    - "activated": project's virtual environment is currently activated
+    """
+    if project_root is None:
+        return "not_found", "未检测到项目目录，无法检查环境"
+    
+    env_dir = project_root / "env"
+    if not env_dir.exists():
+        return "not_found", "未找到 env/ 目录，请先运行 /DEV_SDD:init 初始化项目"
+    
+    # 检查是否在虚拟环境中
+    import sys
+    import platform
+    is_virtual_env = hasattr(sys, 'real_prefix') or (hasattr(sys, 'base_prefix') and sys.base_prefix != sys.prefix)
+    
+    if is_virtual_env:
+        # 已经在虚拟环境中
+        # 进一步检查是否是项目的env目录
+        try:
+            # 获取当前虚拟环境的路径
+            if hasattr(sys, 'base_prefix'):
+                venv_path = Path(sys.base_prefix)
+            else:
+                venv_path = Path(sys.prefix)
+            
+            # 检查是否是项目的env目录
+            if venv_path.resolve() == env_dir.resolve():
+                return "activated", f"已进入项目虚拟环境: {env_dir}"
+            else:
+                # 在其他虚拟环境中，提供切换到项目环境的指导
+                system = platform.system().lower()
+                if system == "windows":
+                    activate_cmd = f".\\env\\Scripts\\activate"
+                else:  # Linux/macOS
+                    activate_cmd = f"source env/bin/activate"
+                return "exists_not_activated", f"当前在其他虚拟环境中。请先退出当前环境 (deactivate)，然后执行: {activate_cmd}"
+        except Exception:
+            # 如果出现异常，保守地报告存在但未确认激活
+            return "exists_not_activated", f"env/ 目录存在 ({env_dir})，激活状态未知。请参考 env/README.md"
+    else:
+        # 不在虚拟环境中，提供激活指导
+        system = platform.system().lower()
+        if system == "windows":
+            activate_cmd = f".\\env\\Scripts\\activate"
+        else:  # Linux/macOS
+            activate_cmd = f"source env/bin/activate"
+        return "exists_not_activated", f"env/ 目录存在但未激活。请执行: {activate_cmd}"
 
 
 def reconcile_todo(project_root: Path, plan: PlanResult) -> dict[str, Any]:
@@ -536,6 +596,9 @@ def run(project_arg: str | None) -> dict[str, Any]:
     if mode.get("detected") == "unknown" or plan.source == "none" or reconciliation.get("status") in {"mismatch", "todo_missing"}:
         status = STATUS_WARNING
 
+    # 环境状态检查
+    env_status, env_detail = check_environment_status(project_root)
+    
     return {
         "status": status,
         "message": f"start-work 检查完成：{project} | Session={session['state']} | Plan={plan.summary}",
@@ -555,6 +618,10 @@ def run(project_arg: str | None) -> dict[str, Any]:
             "reconciliation": reconciliation,
             "next_action": next_action,
             "next_action_source": next_action_source,
+            "environment": {
+                "status": env_status,
+                "detail": env_detail
+            }
         },
     }
 

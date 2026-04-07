@@ -1,0 +1,28 @@
+id: HOOK_CAND_STRUCTURED-LIGHT-ST_001
+candidate_type: hook_check
+source_observer: hook-observer
+source_project: structured-light-stereo
+observed_evidence: |
+  In the 2026-04-04 calibration fix session, post-green verification completed without forcing a sedimentation outcome, so the self-evolution loop was skipped until the omission was noticed manually. The fix required updating post-green and session-snapshot surfaces so completion hooks now demand an explicit Sedimentation Decision and persist the resulting memory action.
+observed_pattern_key: "hook-observer:sedimentation-decision-required:.claude/hooks/post-green/HOOK.md"
+proposed_rule: "post-green and session-end hooks must require and record an explicit Sedimentation Decision so self-evolution cannot be silently skipped after GREEN + VALIDATE."
+target_file: .claude/hooks/post-green/HOOK.md
+proposed_diff: |
+  Strengthen post-green so it does not stop at validation success. Require an explicit Sedimentation Decision in the hook contract and runtime prompt:
+  - .claude/hooks/post-green/HOOK.md: add a mandatory Sedimentation Decision step with the allowed values no_sedimentation | project_memory | framework_candidate.
+  - .claude/hooks/post-green/run.sh: print the decision requirement so post-green output reminds the operator to classify the session before moving on.
+  - .claude/hooks/session-snapshot/HOOK.md: store sedimentation decision + memory action in SESSION-END instead of a vague memory hint.
+  - .claude/hooks/session-snapshot/write.py: accept and persist the decision/action fields.
+
+  Note: these edits were already applied directly in this session; this candidate preserves the hook-side audit trail for later /project:skill-review confirmation.
+confidence: low
+validated_projects:
+  - structured-light-stereo
+status: pending_review
+auto_attach: false
+auto_attach_triggered_projects: []
+auto_attach_issues: []
+created: 2026-04-04
+domain: agent_workflow
+secondary_target: .claude/hooks/session-snapshot/HOOK.md
+failure_count: 1

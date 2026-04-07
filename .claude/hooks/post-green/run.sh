@@ -32,7 +32,8 @@ echo ""
 
 echo "📋 Step 3: 记忆更新提示"
 if [ -f "memory/INDEX.md" ]; then
-    echo "ℹ️ 请检查是否需要更新 memory/INDEX.md"
+    echo "ℹ️ 必须给出 Sedimentation Decision: no_sedimentation | project_memory | framework_candidate"
+    echo "ℹ️ 若非 no_sedimentation，请立即更新项目 memory 或写入 memory/candidates/ 草稿"
 else
     echo "⚠️ 未找到 memory/INDEX.md"
 fi

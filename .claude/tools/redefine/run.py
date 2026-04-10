@@ -123,10 +123,14 @@ def parse_modules(content: str) -> list[dict[str, Any]]:
     if not section:
         return []
 
-    matches = list(re.finditer(r"^###\s+(.+)$", section, re.MULTILINE))
+    matches = list(re.finditer(r"^(#{3,6})\s+(.+)$", section, re.MULTILINE))
     modules: list[dict[str, Any]] = []
+    heading_stack: list[tuple[int, str]] = []
     for index, match in enumerate(matches):
-        name = match.group(1).strip()
+        level = len(match.group(1))
+        name = match.group(2).strip()
+        while heading_stack and heading_stack[-1][0] >= level:
+            heading_stack.pop()
         start = match.end()
         end = matches[index + 1].start() if index + 1 < len(matches) else len(section)
         body = section[start:end]
@@ -135,10 +139,21 @@ def parse_modules(content: str) -> list[dict[str, Any]]:
             field_match = re.match(r"^-\s*([^:：]+)[:：]\s*(.+)$", line.strip())
             if field_match:
                 fields[field_match.group(1).strip()] = field_match.group(2).strip()
+        if not fields:
+            heading_stack.append((level, name))
+            continue
+        group = None
+        for _, ancestor_name in reversed(heading_stack):
+            cleaned = ancestor_name.strip().strip("/")
+            if cleaned:
+                group = cleaned
+                break
         modules.append({
             "name": name,
+            "path": f"modules/{group}/{name}" if group else f"modules/{name}",
             "deps": parse_deps(fields.get("依赖", "无")),
         })
+        heading_stack.append((level, name))
     return modules
 
 

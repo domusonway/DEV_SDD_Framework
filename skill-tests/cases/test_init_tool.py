@@ -11,6 +11,7 @@ Layer 1: DEV_SDD:INIT helper CLI 合规测试
 """
 
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -83,6 +84,10 @@ def test_bootstrap_empty_project_creates_authoritative_plan_and_docs():
             "docs/plan.json",
             "docs/PLAN.md",
             "docs/TODO.md",
+            "env/README.md",
+            "env/requirements.txt",
+            "env/environment.yml",
+            "env/start.sh",
         }.issubset(planned), f"缺少预期初始化目标: {planned}"
         assert not (project_root / "CLAUDE.md").exists(), "dry-run 不应实际写入 CLAUDE.md"
         assert not (project_root / "docs/plan.json").exists(), "dry-run 不应实际写入 plan.json"
@@ -97,16 +102,34 @@ def test_bootstrap_empty_project_creates_authoritative_plan_and_docs():
         assert (project_root / "docs/plan.json").exists(), "应生成 plan.json"
         assert (project_root / "docs/PLAN.md").exists(), "应生成 PLAN.md"
         assert (project_root / "docs/TODO.md").exists(), "应生成 TODO.md"
+        assert (project_root / "env/README.md").exists(), "应生成 env/README.md"
+        assert (project_root / "env/requirements.txt").exists(), "应生成 env/requirements.txt"
+        assert (project_root / "env/environment.yml").exists(), "应生成 env/environment.yml"
+        assert (project_root / "env/start.sh").exists(), "应生成 env/start.sh"
+        assert os.access(project_root / "env/start.sh", os.X_OK), "env/start.sh 应具备执行权限"
 
         plan = json.loads((project_root / "docs/plan.json").read_text(encoding="utf-8"))
         assert plan["project"] == "Demo Init Project", "plan.json 应从 CONTEXT 标题派生项目名"
-        module_names = [m["name"] for batch in plan.get("batches", []) for m in batch.get("modules", [])]
+        plan_modules = [m for batch in plan.get("batches", []) for m in batch.get("modules", [])]
+        module_names = [m["name"] for m in plan_modules]
         assert module_names == ["capture_context", "build_plan"], "plan.json 应从模块划分生成模块清单"
+        assert plan_modules[0]["spec_path"] == "modules/capture_context/SPEC.md", "应显式生成 spec_path"
+        assert plan_modules[0]["impl_path"] == "modules/capture_context", "默认 impl_path 应回退到模块目录"
+        assert plan_modules[0]["path"] == plan_modules[0]["impl_path"], "path 应兼容保留为 impl_path 别名"
 
         claude = (project_root / "CLAUDE.md").read_text(encoding="utf-8")
         assert "docs/plan.json" in claude, "CLAUDE.md 应声明 plan.json 为权威状态"
+        assert "| 模块 | 实现路径 | SPEC | 状态 |" in claude, "CLAUDE.md 应显式区分实现路径与 SPEC"
         readme = (project_root / "README.md").read_text(encoding="utf-8")
         assert "建立一个最小 DEV_SDD 初始化样例" in readme, "README 应包含 CONTEXT 中的项目目标"
+        env_readme = (project_root / "env/README.md").read_text(encoding="utf-8")
+        assert "Ubuntu" in env_readme, "env/README.md 应限定 Ubuntu 使用说明"
+        assert "conda" in env_readme, "env/README.md 应说明 conda 环境"
+        env_yml = (project_root / "env/environment.yml").read_text(encoding="utf-8")
+        assert "dependencies:" in env_yml, "environment.yml 应包含 conda 依赖定义"
+        start_script = (project_root / "env/start.sh").read_text(encoding="utf-8")
+        assert "conda activate" in start_script, "start.sh 应激活 conda 环境"
+        assert "exec \"${SHELL:-/bin/bash}\" -i" in start_script, "start.sh 应进入交互 shell"
     finally:
         shutil.rmtree(project_root.parent, ignore_errors=True)
 
@@ -138,6 +161,61 @@ def test_existing_docs_require_confirmation_and_preserve_files():
         shutil.rmtree(project_root.parent, ignore_errors=True)
 
 
+def test_nested_module_groups_expand_to_fine_grained_plan_modules():
+    project_root = clone_fixture("nested-groups-project")
+    try:
+        actual = run_tool(project_root, "--json")
+        assert actual.returncode == 0, f"嵌套模块初始化失败: {actual.stderr}"
+        result = parse_json_output(actual, "init nested groups actual")
+        assert result["status"] == "ok", "嵌套模块 bootstrap 应成功"
+
+        plan = json.loads((project_root / "docs/plan.json").read_text(encoding="utf-8"))
+        module_names = [m["name"] for batch in plan.get("batches", []) for m in batch.get("modules", [])]
+        assert module_names == ["projects", "config", "workorders", "dashboard"], (
+            f"plan.json 应展开细粒度模块，而不是分组容器: {module_names}"
+        )
+        assert "backend/" not in module_names, "backend/ 分组不应被当作可执行模块"
+        assert "frontend/" not in module_names, "frontend/ 分组不应被当作可执行模块"
+
+        claude = (project_root / "CLAUDE.md").read_text(encoding="utf-8")
+        assert "| projects |" in claude, "CLAUDE.md 应列出细粒度后端模块"
+        assert "| dashboard |" in claude, "CLAUDE.md 应列出细粒度前端模块"
+        assert "| backend/ |" not in claude, "CLAUDE.md 不应把 backend/ 分组写成模块"
+        assert "| projects | modules/backend/projects | [SPEC](modules/backend/projects/SPEC.md) |" in claude, (
+            "backend 分组下的模块应写入 modules/backend/<name>/"
+        )
+        assert "| dashboard | modules/frontend/dashboard | [SPEC](modules/frontend/dashboard/SPEC.md) |" in claude, (
+            "frontend 分组下的模块应写入 modules/frontend/<name>/"
+        )
+    finally:
+        shutil.rmtree(project_root.parent, ignore_errors=True)
+
+
+def test_directory_tree_infers_impl_path_separately_from_spec_path():
+    project_root = clone_fixture("impl-paths-project")
+    try:
+        actual = run_tool(project_root, "--json")
+        assert actual.returncode == 0, f"目录树推断初始化失败: {actual.stderr}"
+        result = parse_json_output(actual, "init inferred impl paths")
+        assert result["status"] == "ok", "带目录结构的项目初始化应成功"
+
+        plan = json.loads((project_root / "docs/plan.json").read_text(encoding="utf-8"))
+        plan_modules = [m for batch in plan.get("batches", []) for m in batch.get("modules", [])]
+        models_entry = next(m for m in plan_modules if m["name"] == "models")
+        cli_entry = next(m for m in plan_modules if m["name"] == "cli")
+        assert models_entry["spec_path"] == "modules/models/SPEC.md"
+        assert models_entry["impl_path"] == "harness/models.py"
+        assert cli_entry["spec_path"] == "modules/cli/SPEC.md"
+        assert cli_entry["impl_path"] == "cli.py"
+
+        claude = (project_root / "CLAUDE.md").read_text(encoding="utf-8")
+        assert "| models | harness/models.py | [SPEC](modules/models/SPEC.md) |" in claude
+        assert "| cli | cli.py | [SPEC](modules/cli/SPEC.md) |" in claude
+        assert "harness/models.py/SPEC.md" not in claude, "不应把实现路径继续拼成 SPEC 链接"
+    finally:
+        shutil.rmtree(project_root.parent, ignore_errors=True)
+
+
 def test_repo_relative_project_path_does_not_duplicate_projects_segment():
     res = run_tool("projects/does-not-exist", "--json")
     assert res.returncode == 1, "缺失 CONTEXT 的显式 repo-relative 路径应返回 error"
@@ -154,6 +232,8 @@ if __name__ == "__main__":
         test_help_contains_usage_and_example,
         test_bootstrap_empty_project_creates_authoritative_plan_and_docs,
         test_existing_docs_require_confirmation_and_preserve_files,
+        test_nested_module_groups_expand_to_fine_grained_plan_modules,
+        test_directory_tree_infers_impl_path_separately_from_spec_path,
         test_repo_relative_project_path_does_not_duplicate_projects_segment,
     ]
     failed = 0

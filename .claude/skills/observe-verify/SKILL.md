@@ -47,8 +47,8 @@ Layer 3: 集成/E2E 验证（最慢，按需）
 # 运行当前模块测试，要求零失败、零 SKIP
 python3 -m pytest tests/test_<module>.py -v --tb=short 2>&1
 
-# 检查实现完整性（不含 pass/return None）
-python3 .claude/hooks/observe-verify/check_impl.py modules/<module>/
+# 从 docs/plan.json 读取 impl_path，再检查实现完整性（不含 pass/return None）
+python3 .claude/hooks/observe-verify/check_impl.py --module <module>
 ```
 
 **通过标准：**
@@ -63,8 +63,7 @@ python3 .claude/hooks/observe-verify/check_impl.py modules/<module>/
 
 ```bash
 python3 .claude/hooks/observe-verify/check_contract.py \
-    --spec modules/<module>/SPEC.md \
-    --impl modules/<module>/<impl>.py
+    --module <module>
 ```
 
 **检查项：**
@@ -101,8 +100,8 @@ python3 tests/integration/test_<module>_e2e.py
 ```bash
 # 用 SPEC 中的示例输入运行，验证输出精确匹配
 python3 .claude/hooks/observe-verify/run_spec_examples.py \
-    --spec modules/<module>/SPEC.md \
-    --impl modules/<module>/<impl>.py
+    --spec <spec_path> \
+    --impl <impl_path>
 ```
 
 ---
@@ -116,19 +115,24 @@ python3 .claude/hooks/observe-verify/run_spec_examples.py \
 python3 -m pytest tests/test_<module>.py -v --tb=short
 
 # 2. 实现完整性
-python3 .claude/hooks/observe-verify/check_impl.py modules/<module>/
+python3 .claude/hooks/observe-verify/check_impl.py --module <module>
 
 # 3. 接口契约（如有 SPEC）
-python3 .claude/hooks/observe-verify/check_contract.py \
-    --spec modules/<module>/SPEC.md \
-    --impl modules/<module>/*.py
+python3 .claude/hooks/observe-verify/check_contract.py --module <module>
 
 # 4. 网络代码（如有 recv/send/socket）
-python3 .claude/hooks/network-guard/check.py modules/<module>/
+python3 .claude/hooks/network-guard/check.py <impl_path>
 
 # 5. plan-tracker 标记完成
 python3 .claude/tools/plan-tracker/tracker.py complete <module>
 ```
+
+其中：
+
+- `spec_path` 来自 `docs/plan.json` 中对应模块的 `spec_path`
+- `impl_path` 来自 `docs/plan.json` 中对应模块的 `impl_path`
+- `modules/` 默认只承载规格，不再假设实现代码与规格同目录
+- `check_impl.py --module <module>` 和 `check_contract.py --module <module>` 会自动解析上述路径
 
 ---
 
@@ -170,4 +174,3 @@ python3 .claude/tools/plan-tracker/tracker.py complete <module>
 - **验证结果写入 CHECKPOINT**：不可只在脑子里过，必须有记录
 
 ````
-

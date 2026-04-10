@@ -39,7 +39,8 @@
 ### M 模式
 1. 写 docs/CONTEXT.md（背景、架构、模块划分）
 2. 为每个模块写 modules/<name>/SPEC.md
-3. 按依赖顺序逐模块读取 tdd-cycle/SKILL.md 实现
+3. 在 plan.json 中为模块显式区分 `spec_path` 与 `impl_path`
+4. 按依赖顺序逐模块读取 tdd-cycle/SKILL.md 实现
 
 ### H 模式
 1. 写完整文档套件（CONTEXT.md + PLAN.md + TODO.md + 所有 SPEC.md）

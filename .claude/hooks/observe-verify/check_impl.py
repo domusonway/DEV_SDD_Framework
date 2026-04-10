@@ -6,11 +6,21 @@ observe-verify/check_impl.py
 用法: python3 check_impl.py <file_or_directory>
 """
 import ast
+import importlib.util
 import sys
 import os
 from pathlib import Path
 from dataclasses import dataclass
 from typing import List
+
+
+TOOLS_ROOT = Path(__file__).resolve().parents[2] / "tools"
+COMMON_SPEC = importlib.util.spec_from_file_location("workflow_cli_common", TOOLS_ROOT / "workflow_cli_common.py")
+assert COMMON_SPEC and COMMON_SPEC.loader
+workflow_cli_common = importlib.util.module_from_spec(COMMON_SPEC)
+COMMON_SPEC.loader.exec_module(workflow_cli_common)
+
+ROOT = workflow_cli_common.find_framework_root(__file__)
 
 
 @dataclass
@@ -131,12 +141,64 @@ def scan_file(filepath: str) -> List[Issue]:
     return issues
 
 
+def resolve_module_impl_target(module_name: str, project_arg: str | None) -> str:
+    target_root = _detect_local_project_root(project_arg)
+    if target_root is None:
+        target_root, _target_label = workflow_cli_common.resolve_target_project(project_arg, ROOT, Path.cwd())
+    if target_root is None:
+        raise FileNotFoundError("未检测到激活项目，也未提供 --project")
+    plan_path = target_root / "docs" / "plan.json"
+    if not plan_path.exists():
+        raise FileNotFoundError(f"plan.json 不存在: {plan_path}")
+    import json
+
+    plan = json.loads(plan_path.read_text(encoding="utf-8"))
+    for batch in plan.get("batches", []):
+        for module in batch.get("modules", []):
+            if module.get("name") != module_name:
+                continue
+            impl_path = str(module.get("impl_path") or module.get("path") or "").strip()
+            if not impl_path:
+                raise FileNotFoundError(f"模块 {module_name} 缺少 impl_path")
+            target = target_root / impl_path
+            if not target.exists():
+                raise FileNotFoundError(f"模块 {module_name} 的 impl_path 不存在: {target}")
+            return str(target)
+    raise FileNotFoundError(f"plan.json 中不存在模块: {module_name}")
+
+
+def _detect_local_project_root(project_arg: str | None) -> Path | None:
+    if project_arg:
+        return None
+    current = Path.cwd().resolve()
+    for candidate in [current] + list(current.parents):
+        if (candidate / "docs" / "plan.json").exists():
+            return candidate
+        claude_md = candidate / "CLAUDE.md"
+        if claude_md.exists():
+            project = workflow_cli_common.parse_project_from_text(workflow_cli_common.safe_read_text(claude_md))
+            if project and (candidate / "projects" / project / "docs" / "plan.json").exists():
+                return (candidate / "projects" / project).resolve()
+    return None
+
+
 def main():
-    if len(sys.argv) < 2:
-        print("用法: python3 check_impl.py <file_or_directory>")
+    import argparse
+
+    parser = argparse.ArgumentParser(description="实现完整性检查工具")
+    parser.add_argument("target", nargs="?", help="实现文件或目录路径（兼容旧用法）")
+    parser.add_argument("--module", help="模块名；从 plan.json 解析 impl_path")
+    parser.add_argument("--project", help="项目名或项目路径；与 --module 搭配使用")
+    args = parser.parse_args()
+
+    if args.module:
+        target = resolve_module_impl_target(args.module, args.project)
+    elif args.target:
+        target = args.target
+    else:
+        print("用法: python3 check_impl.py <file_or_directory> 或 python3 check_impl.py --module <module> [--project <project>]")
         sys.exit(1)
 
-    target = sys.argv[1]
     all_issues: List[Issue] = []
 
     if os.path.isfile(target):

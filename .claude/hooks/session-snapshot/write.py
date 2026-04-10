@@ -1,34 +1,43 @@
 #!/usr/bin/env python3
 """
 session-snapshot write.py
-将会话快照写入 projects/<PROJECT>/memory/sessions/ 目录
 
-用法:
-  python3 write.py start "<task>"
-  python3 write.py checkpoint "<event>" "<result>" "<state>"
-  python3 write.py end "<completed>" "<interrupted>" "<next_step>" ["<decision>"] ["<memory_action>"]
+用途:
+  将会话快照写入 projects/<PROJECT>/memory/sessions/ 目录，并支持统一 JSON CLI 输出。
 
-PROJECT 从环境变量或 CLAUDE.md 读取。
+示例:
+  python3 write.py start "实现 projects 模块"
+  python3 write.py checkpoint "projects VALIDATE" "5/5 PASS" "GREEN"
+  python3 write.py end "完成 projects" "无" "开始 workorders"
+  python3 write.py --json list --latest
 """
-import sys
+
+from __future__ import annotations
+
+import argparse
+import json
 import os
 import re
+import sys
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
-# ── 配置 ──────────────────────────────────────────────────────────────────────
 
 def find_project_root() -> Path:
-    """从当前目录向上找到包含 CLAUDE.md 的框架根目录"""
+    """Find framework root or current project root."""
     current = Path.cwd()
     for parent in [current] + list(current.parents):
-        if (parent / "CLAUDE.md").exists():
+        if (parent / "memory" / "sessions").exists() or (parent / "CLAUDE.md").exists():
             return parent
     return current
 
 
 def get_project_name(root: Path) -> str:
-    """从 CLAUDE.md 读取当前激活项目名"""
+    """Read current project from project root or framework CLAUDE.md."""
+    if (root / "memory" / "sessions").exists():
+        return root.name
+
     claude_md = root / "CLAUDE.md"
     if not claude_md.exists():
         return os.environ.get("PROJECT", "unknown")
@@ -39,33 +48,58 @@ def get_project_name(root: Path) -> str:
     return os.environ.get("PROJECT", "unknown")
 
 
+def project_path(root: Path, project: str) -> Path:
+    if (root / "memory" / "sessions").exists():
+        return root
+    return root / "projects" / project
+
+
 def get_session_dir(root: Path, project: str) -> Path:
-    """返回 sessions 目录，不存在则创建"""
-    session_dir = root / "projects" / project / "memory" / "sessions"
+    session_dir = project_path(root, project) / "memory" / "sessions"
     session_dir.mkdir(parents=True, exist_ok=True)
     return session_dir
 
 
 def get_current_session_file(session_dir: Path) -> Path | None:
-    """找到今天最新的 in-progress session 文件"""
     today = datetime.now().strftime("%Y-%m-%d")
     files = sorted(session_dir.glob(f"{today}_*.md"), reverse=True)
-    for f in files:
-        content = f.read_text(encoding="utf-8")
+    for file_path in files:
+        content = file_path.read_text(encoding="utf-8")
         if "status: in-progress" in content:
-            return f
+            return file_path
     return None
 
 
 def create_session_file(session_dir: Path, session_id: str) -> Path:
-    """创建新的 session 文件"""
-    filename = f"{session_id}.md"
-    return session_dir / filename
+    return session_dir / f"{session_id}.md"
 
 
-# ── 命令实现 ──────────────────────────────────────────────────────────────────
+def parse_session_file(file_path: Path) -> dict[str, Any]:
+    content = file_path.read_text(encoding="utf-8")
+    task_match = re.search(r"^task: (.+)$", content, re.MULTILINE)
+    session_id_match = re.search(r"^session_id: (.+)$", content, re.MULTILINE)
+    project_match = re.search(r"^project: (.+)$", content, re.MULTILINE)
+    status = "completed" if "status: completed" in content else "in-progress"
+    next_action_match = re.search(r"^下次继续: (.+)$", content, re.MULTILINE)
+    return {
+        "session_id": (session_id_match.group(1).strip() if session_id_match else file_path.stem),
+        "project": project_match.group(1).strip() if project_match else "unknown",
+        "task": task_match.group(1).strip() if task_match else "未知任务",
+        "status": status,
+        "checkpoint_count": content.count("[CHECKPOINT"),
+        "next_action": next_action_match.group(1).strip() if next_action_match else None,
+        "path": file_path.name,
+    }
 
-def cmd_start(task: str):
+
+def emit(args, *, status: str, message: str, data: Any) -> None:
+    if args.json:
+        print(json.dumps({"status": status, "message": message, "data": data}, ensure_ascii=False))
+    else:
+        print(message)
+
+
+def cmd_start(args) -> int:
     root = find_project_root()
     project = get_project_name(root)
     session_dir = get_session_dir(root, project)
@@ -74,155 +108,160 @@ def cmd_start(task: str):
     session_id = now.strftime("%Y-%m-%d_%H-%M")
     time_str = now.strftime("%H:%M")
 
-    # 检查是否有上次 in-progress
     prev = get_current_session_file(session_dir)
     resume_note = f"续接 {prev.stem}" if prev else "新会话"
-
     filepath = create_session_file(session_dir, session_id)
+    filepath.write_text(
+        f"---\n"
+        f"status: in-progress\n"
+        f"session_id: {session_id}\n"
+        f"project: {project}\n"
+        f"task: {args.task}\n"
+        f"---\n\n"
+        f"[SESSION-START]\n"
+        f"时间: {time_str}\n"
+        f"加载记忆: 待填写\n"
+        f"项目状态: 待填写\n"
+        f"续接: {resume_note}\n"
+        f"[/SESSION-START]\n",
+        encoding="utf-8",
+    )
+    emit(args, status="ok", message=f"[session-snapshot] 已创建: {filepath.name}", data=parse_session_file(filepath))
+    return 0
 
-    content = f"""---
-status: in-progress
-session_id: {session_id}
-project: {project}
-task: {task}
----
 
-[SESSION-START]
-时间: {time_str}
-加载记忆: 待填写
-项目状态: 待填写
-续接: {resume_note}
-[/SESSION-START]
-"""
-    filepath.write_text(content, encoding="utf-8")
-    print(f"[session-snapshot] 已创建: {filepath.name}")
-    return str(filepath)
-
-
-def cmd_checkpoint(event: str, result: str, state: str):
+def cmd_checkpoint(args) -> int:
     root = find_project_root()
     project = get_project_name(root)
     session_dir = get_session_dir(root, project)
-
     filepath = get_current_session_file(session_dir)
     if not filepath:
-        print("[session-snapshot] ⚠️  无 in-progress session，请先执行 start")
-        return
+        emit(args, status="warning", message="[session-snapshot] ⚠️  无 in-progress session，请先执行 start", data=None)
+        return 0
 
     time_str = datetime.now().strftime("%H:%M")
-    block = f"""
-[CHECKPOINT {time_str}]
-事件: {event}
-决策/结果: {result}
-当前状态: {state}
-[/CHECKPOINT]
-"""
-    with open(filepath, "a", encoding="utf-8") as f:
-        f.write(block)
-    print(f"[session-snapshot] ✅ 检查点已写入: {filepath.name}")
+    with open(filepath, "a", encoding="utf-8") as handle:
+        handle.write(
+            f"\n[CHECKPOINT {time_str}]\n"
+            f"事件: {args.event}\n"
+            f"决策/结果: {args.result}\n"
+            f"当前状态: {args.state}\n"
+            f"[/CHECKPOINT]\n"
+        )
+    emit(args, status="ok", message=f"[session-snapshot] ✅ 检查点已写入: {filepath.name}", data=parse_session_file(filepath))
+    return 0
 
 
-def cmd_end(
-    completed: str,
-    interrupted: str,
-    next_step: str,
-    decision: str = "no_sedimentation",
-    memory_action: str = "无",
-):
+def cmd_end(args) -> int:
     root = find_project_root()
     project = get_project_name(root)
     session_dir = get_session_dir(root, project)
-
     filepath = get_current_session_file(session_dir)
     if not filepath:
-        # 无 in-progress 文件，创建一个简单的结束记录
         now = datetime.now()
         session_id = now.strftime("%Y-%m-%d_%H-%M")
         filepath = create_session_file(session_dir, session_id)
         filepath.write_text(
-            f"---\nstatus: in-progress\nsession_id: {session_id}\n"
-            f"project: {project}\ntask: 未记录\n---\n\n",
-            encoding="utf-8"
+            f"---\nstatus: in-progress\nsession_id: {session_id}\nproject: {project}\ntask: 未记录\n---\n\n",
+            encoding="utf-8",
         )
 
     time_str = datetime.now().strftime("%H:%M")
-    block = f"""
-[SESSION-END]
-时间: {time_str}
-完成了: {completed}
-未完成: {interrupted}
-下次继续: {next_step}
-沉淀决策: {decision}
-记忆动作: {memory_action}
-[/SESSION-END]
-"""
-    # 追加 session-end
-    with open(filepath, "a", encoding="utf-8") as f:
-        f.write(block)
+    with open(filepath, "a", encoding="utf-8") as handle:
+        handle.write(
+            f"\n[SESSION-END]\n"
+            f"时间: {time_str}\n"
+            f"完成了: {args.completed}\n"
+            f"未完成: {args.interrupted}\n"
+            f"下次继续: {args.next_step}\n"
+            f"沉淀决策: {args.decision}\n"
+            f"记忆动作: {args.memory_action}\n"
+            f"[/SESSION-END]\n"
+        )
 
-    # 更新 status 为 completed
     content = filepath.read_text(encoding="utf-8")
-    content = content.replace("status: in-progress", "status: completed", 1)
-    filepath.write_text(content, encoding="utf-8")
+    filepath.write_text(content.replace("status: in-progress", "status: completed", 1), encoding="utf-8")
+    emit(args, status="ok", message=f"[session-snapshot] ✅ 会话已关闭: {filepath.name}", data=parse_session_file(filepath))
+    return 0
 
-    print(f"[session-snapshot] ✅ 会话已关闭: {filepath.name}")
 
-
-def cmd_list():
-    """列出最近 7 天的 session 文件及状态"""
+def cmd_list(args) -> int:
     root = find_project_root()
     project = get_project_name(root)
     session_dir = get_session_dir(root, project)
-
     files = sorted(session_dir.glob("*.md"), reverse=True)[:14]
-    if not files:
+    records = [parse_session_file(file_path) for file_path in files]
+
+    if args.latest:
+        latest = records[0] if records else None
+        emit(args, status="ok", message=f"最近 session（项目: {project}）", data=latest)
+        return 0
+
+    if args.json:
+        emit(args, status="ok", message=f"最近 session 记录（项目: {project}）", data=records)
+        return 0
+
+    if not records:
         print("[session-snapshot] 暂无 session 记录")
-        return
+        return 0
 
-    print(f"\n最近 session 记录（项目: {project}）\n{'─'*50}")
-    for f in files:
-        content = f.read_text(encoding="utf-8")
-        status = "✅ completed" if "status: completed" in content else "🔄 in-progress"
-        checkpoints = content.count("[CHECKPOINT")
-        task_match = re.search(r"^task: (.+)$", content, re.MULTILINE)
-        task = task_match.group(1)[:40] if task_match else "未知任务"
-        print(f"  {f.stem}  {status}  [{checkpoints} checkpoints]  {task}")
+    print(f"\n最近 session 记录（项目: {project}）\n{'─' * 50}")
+    for record in records:
+        icon = "✅ completed" if record["status"] == "completed" else "🔄 in-progress"
+        print(f"  {record['session_id']}  {icon}  [{record['checkpoint_count']} checkpoints]  {record['task'][:40]}")
     print()
+    return 0
 
 
-# ── 入口 ──────────────────────────────────────────────────────────────────────
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        description="session-snapshot 会话快照工具",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+用途:
+  将会话快照写入 projects/<PROJECT>/memory/sessions/ 目录，并支持统一 JSON CLI 输出。
 
-def main():
-    if len(sys.argv) < 2:
-        print("用法: python3 write.py <start|checkpoint|end|list> [args...]")
-        sys.exit(1)
+示例:
+  python3 write.py start "实现 projects 模块"
+  python3 write.py checkpoint "projects VALIDATE" "5/5 PASS" "GREEN"
+  python3 write.py end "完成 projects" "无" "开始 workorders"
+  python3 write.py --json list --latest
+""",
+    )
+    parser.add_argument("--json", action="store_true", help="输出 JSON envelope")
+    subparsers = parser.add_subparsers(dest="cmd")
 
-    cmd = sys.argv[1]
+    start_parser = subparsers.add_parser("start", help="创建新 session")
+    start_parser.add_argument("task", nargs="?", default="未指定任务")
+    start_parser.set_defaults(handler=cmd_start)
 
-    if cmd == "start":
-        task = sys.argv[2] if len(sys.argv) > 2 else "未指定任务"
-        cmd_start(task)
+    checkpoint_parser = subparsers.add_parser("checkpoint", help="追加 checkpoint")
+    checkpoint_parser.add_argument("event", nargs="?", default="未知事件")
+    checkpoint_parser.add_argument("result", nargs="?", default="")
+    checkpoint_parser.add_argument("state", nargs="?", default="")
+    checkpoint_parser.set_defaults(handler=cmd_checkpoint)
 
-    elif cmd == "checkpoint":
-        event = sys.argv[2] if len(sys.argv) > 2 else "未知事件"
-        result = sys.argv[3] if len(sys.argv) > 3 else ""
-        state = sys.argv[4] if len(sys.argv) > 4 else ""
-        cmd_checkpoint(event, result, state)
+    end_parser = subparsers.add_parser("end", help="关闭当前 session")
+    end_parser.add_argument("completed", nargs="?", default="未记录")
+    end_parser.add_argument("interrupted", nargs="?", default="无")
+    end_parser.add_argument("next_step", nargs="?", default="待定")
+    end_parser.add_argument("decision", nargs="?", default="no_sedimentation")
+    end_parser.add_argument("memory_action", nargs="?", default="无")
+    end_parser.set_defaults(handler=cmd_end)
 
-    elif cmd == "end":
-        completed = sys.argv[2] if len(sys.argv) > 2 else "未记录"
-        interrupted = sys.argv[3] if len(sys.argv) > 3 else "无"
-        next_step = sys.argv[4] if len(sys.argv) > 4 else "待定"
-        decision = sys.argv[5] if len(sys.argv) > 5 else "no_sedimentation"
-        memory_action = sys.argv[6] if len(sys.argv) > 6 else "无"
-        cmd_end(completed, interrupted, next_step, decision, memory_action)
+    list_parser = subparsers.add_parser("list", help="列出最近 session")
+    list_parser.add_argument("--latest", action="store_true", help="仅返回最新一条")
+    list_parser.set_defaults(handler=cmd_list)
+    return parser
 
-    elif cmd == "list":
-        cmd_list()
 
-    else:
-        print(f"未知命令: {cmd}")
-        sys.exit(1)
+def main() -> None:
+    parser = build_parser()
+    args = parser.parse_args()
+    if not hasattr(args, "handler"):
+        parser.print_help()
+        sys.exit(0)
+    sys.exit(args.handler(args))
 
 
 if __name__ == "__main__":

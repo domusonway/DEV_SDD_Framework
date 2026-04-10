@@ -29,20 +29,27 @@ import os
 import re
 import json
 import argparse
+import subprocess
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 
+CHECK_IMPL_PATH = Path(__file__).resolve().parents[2] / "hooks" / "observe-verify" / "check_impl.py"
+
+
 def find_project_root() -> Path:
     current = Path.cwd()
     for parent in [current] + list(current.parents):
-        if (parent / "CLAUDE.md").exists():
+        if (parent / "docs" / "plan.json").exists() or (parent / "CLAUDE.md").exists():
             return parent
     return current
 
 
 def get_project_name(root: Path) -> str:
+    if (root / "docs" / "plan.json").exists():
+        return root.name
+
     claude_md = root / "CLAUDE.md"
     if not claude_md.exists():
         return os.environ.get("PROJECT", "unknown")
@@ -54,20 +61,105 @@ def get_project_name(root: Path) -> str:
 
 
 def load_plan(root: Path, project: str) -> dict[str, Any]:
-    plan_path = root / "projects" / project / "docs" / "plan.json"
+    plan_path = project_path(root, project) / "docs" / "plan.json"
     if not plan_path.exists():
         raise FileNotFoundError(f"plan.json 不存在: {plan_path}\n请先创建 plan.json（参见模板）")
     return json.loads(plan_path.read_text(encoding="utf-8"))
 
 
 def save_plan(root: Path, project: str, plan: dict[str, Any]):
-    plan_path = root / "projects" / project / "docs" / "plan.json"
+    plan_path = project_path(root, project) / "docs" / "plan.json"
     plan_path.write_text(json.dumps(plan, ensure_ascii=False, indent=2))
 
 
-def render_markdown(root: Path, project: str, plan: dict[str, Any]):
+def project_path(root: Path, project: str) -> Path:
+    if (root / "docs" / "plan.json").exists():
+        return root
+    return root / "projects" / project
+
+
+def collect_plan_modules(plan: dict[str, Any]) -> list[dict[str, Any]]:
+    batches = plan.get("batches")
+    if isinstance(batches, list):
+        return [m for b in batches if isinstance(b, dict) for m in b.get("modules", []) if isinstance(m, dict)]
+
+    if "phases" in plan:
+        raise ValueError("plan.json 使用旧 schema（phases/tasks）；请迁移为 batches/modules 后再运行 plan-tracker")
+
+    raise ValueError("plan.json 缺少 batches/modules 结构；请使用 INIT/REDEFINE 生成标准计划")
+
+
+def find_module_entry(plan: dict[str, Any], module_name: str) -> dict[str, Any] | None:
+    for batch in plan.get("batches", []):
+        for module in batch.get("modules", []):
+            if module.get("name") == module_name:
+                return module
+    return None
+
+
+def resolve_impl_target(root: Path, project: str, module: dict[str, Any]) -> Path:
+    proj_root = project_path(root, project)
+    explicit_path = str(module.get("impl_path") or module.get("path") or "").strip()
+    if explicit_path:
+        target = proj_root / explicit_path
+        if target.exists():
+            return target
+        raise FileNotFoundError(f"模块 {module.get('name')} 的 impl_path 不存在: {target}")
+
+    module_name = str(module.get("name") or "").strip()
+    if not module_name:
+        raise FileNotFoundError("模块缺少 name，无法定位实现路径")
+
+    direct_candidates = [
+        proj_root / module_name,
+        proj_root / "modules" / module_name,
+    ]
+    for candidate in direct_candidates:
+        if candidate.exists():
+            return candidate
+
+    modules_root = proj_root / "modules"
+    if not modules_root.exists():
+        raise FileNotFoundError(f"项目缺少 modules 目录: {modules_root}")
+
+    matches = sorted(path for path in modules_root.rglob("*") if path.name == module_name)
+    if len(matches) == 1:
+        return matches[0]
+    if len(matches) > 1:
+        options = ", ".join(str(path.relative_to(proj_root)) for path in matches[:5])
+        raise FileNotFoundError(f"模块 {module_name} 匹配到多个实现路径，请在 plan.json 中显式设置 path: {options}")
+
+    raise FileNotFoundError(f"无法为模块 {module_name} 定位实现路径；请在 plan.json 中添加 impl_path 字段")
+
+
+def run_impl_check(root: Path, project: str, module: dict[str, Any]) -> dict[str, Any]:
+    target = resolve_impl_target(root, project, module)
+    result = subprocess.run(
+        [sys.executable, str(CHECK_IMPL_PATH), str(target)],
+        capture_output=True,
+        text=True,
+    )
+    output = (result.stdout or "") + (result.stderr or "")
+    target_display = str(target.relative_to(project_path(root, project)))
+    return {
+        "passed": result.returncode == 0,
+        "target": target_display,
+        "output": output.strip(),
+    }
+
+
+def fail_invalid_plan_schema(args, message: str):
+    if getattr(args, "json", False):
+        print(json.dumps({"status": "error", "message": message, "data": None}, ensure_ascii=False))
+    else:
+        print(f"❌ {message}")
+    sys.exit(1)
+
+
+def render_markdown(root: Path, project: str, plan: dict[str, Any], quiet: bool = False):
     """从 plan.json 生成 PLAN.md（generated read-only view）"""
-    md_path = root / "projects" / project / "docs" / "PLAN.md"
+    modules = collect_plan_modules(plan)
+    md_path = project_path(root, project) / "docs" / "PLAN.md"
     lines = [
         f"# {plan.get('project', project)} · 实现计划",
         "",
@@ -91,21 +183,24 @@ def render_markdown(root: Path, project: str, plan: dict[str, Any]):
             if module.get("deps"):
                 lines.append(f"   - 依赖: {', '.join(module['deps'])}")
         lines.append("")
-    all_modules = [m for b in plan.get("batches", []) for m in b.get("modules", [])]
-    completed = sum(1 for m in all_modules if m.get("state") == "completed")
-    total = len(all_modules)
+    completed = sum(1 for m in modules if m.get("state") == "completed")
+    total = len(modules)
     lines.append("---")
     lines.append(f"**进度: {completed}/{total}**")
     lines.append(f"_最后更新: {datetime.now().strftime('%Y-%m-%d %H:%M')}_")
     md_path.write_text("\n".join(lines), encoding="utf-8")
-    print(f"[plan-tracker] ✅ PLAN.md 已更新 ({completed}/{total} 完成)")
+    if not quiet:
+        print(f"[plan-tracker] ✅ PLAN.md 已更新 ({completed}/{total} 完成)")
 
 
 def _compute_next_action(plan: dict[str, Any]) -> str:
     """计算当前最高优先级的未完成模块名（按批次顺序）。"""
     for batch in plan.get("batches", []):
         for module in batch.get("modules", []):
-            if module.get("state") == "pending":
+            state = module.get("state", "pending")
+            if state == "in_progress":
+                return f"继续实现 {module['name']}（{batch['name']}）"
+            if state == "pending":
                 return f"实现 {module['name']}（{batch['name']}）"
     return "所有模块已完成，可进入 validate-output"
 
@@ -120,7 +215,10 @@ def cmd_status(args, root, project):
             print(f"❌ {e}")
         sys.exit(1)
 
-    all_modules = [m for b in plan.get("batches", []) for m in b.get("modules", [])]
+    try:
+        all_modules = collect_plan_modules(plan)
+    except ValueError as e:
+        fail_invalid_plan_schema(args, str(e))
     completed_list = [m["name"] for m in all_modules if m.get("state") == "completed"]
     pending_list = [m["name"] for m in all_modules if m.get("state") == "pending"]
     skipped_list = [m["name"] for m in all_modules if m.get("state") == "skipped"]
@@ -179,23 +277,55 @@ def cmd_status(args, root, project):
 
 def cmd_complete(args, root, project):
     plan = load_plan(root, project)
+    try:
+        collect_plan_modules(plan)
+    except ValueError as e:
+        fail_invalid_plan_schema(args, str(e))
+
     module_name = args.module
-    found = False
-    for batch in plan.get("batches", []):
-        for m in batch.get("modules", []):
-            if m["name"] == module_name:
-                m["state"] = "completed"
-                m["completed_at"] = datetime.now().strftime("%Y-%m-%d")
-                found = True
-                break
-    if not found:
+    module = find_module_entry(plan, module_name)
+    if module is None:
         if args.json:
             print(json.dumps({"status": "error", "message": f"未找到模块: {module_name}", "data": None}, ensure_ascii=False))
         else:
             print(f"❌ 未找到模块: {module_name}")
         sys.exit(1)
+
+    try:
+        impl_check = run_impl_check(root, project, module)
+    except FileNotFoundError as e:
+        if args.json:
+            print(json.dumps({
+                "status": "error",
+                "message": str(e),
+                "data": {"module": module_name},
+            }, ensure_ascii=False))
+        else:
+            print(f"❌ {e}")
+        sys.exit(1)
+
+    if not impl_check["passed"]:
+        message = f"模块 {module_name} 未通过实现完整性检查，禁止标记完成"
+        if args.json:
+            print(json.dumps({
+                "status": "error",
+                "message": message,
+                "data": {
+                    "module": module_name,
+                    "target": impl_check["target"],
+                    "impl_check_output": impl_check["output"],
+                },
+            }, ensure_ascii=False))
+        else:
+            print(f"❌ {message}")
+            if impl_check["output"]:
+                print(impl_check["output"])
+        sys.exit(1)
+
+    module["state"] = "completed"
+    module["completed_at"] = datetime.now().strftime("%Y-%m-%d")
     save_plan(root, project, plan)
-    render_markdown(root, project, plan)
+    render_markdown(root, project, plan, quiet=args.json)
     next_action = _compute_next_action(plan)
     if args.json:
         print(json.dumps({
@@ -210,6 +340,10 @@ def cmd_complete(args, root, project):
 
 def cmd_skip(args, root, project):
     plan = load_plan(root, project)
+    try:
+        collect_plan_modules(plan)
+    except ValueError as e:
+        fail_invalid_plan_schema(args, str(e))
     found = False
     for batch in plan.get("batches", []):
         for m in batch.get("modules", []):
@@ -225,7 +359,7 @@ def cmd_skip(args, root, project):
             print(f"❌ 未找到模块: {args.module}")
         sys.exit(1)
     save_plan(root, project, plan)
-    render_markdown(root, project, plan)
+    render_markdown(root, project, plan, quiet=args.json)
     if args.json:
         print(json.dumps({
             "status": "ok",
@@ -238,19 +372,49 @@ def cmd_skip(args, root, project):
 
 def cmd_validate(args, root, project):
     plan = load_plan(root, project)
-    all_modules = [m for b in plan.get("batches", []) for m in b.get("modules", [])]
-    pending = [m for m in all_modules if m.get("state") == "pending"]
-    if pending:
-        msg = f"仍有未完成模块: {', '.join(m['name'] for m in pending)}"
+    try:
+        all_modules = collect_plan_modules(plan)
+    except ValueError as e:
+        fail_invalid_plan_schema(args, str(e))
+
+    unfinished = [m for m in all_modules if m.get("state") in {"pending", "in_progress"}]
+    if unfinished:
+        msg = f"仍有未完成模块: {', '.join(m['name'] for m in unfinished)}"
         if args.json:
-            print(json.dumps({"status": "error", "message": msg, "data": {"pending": [m["name"] for m in pending]}}, ensure_ascii=False))
+            print(json.dumps({"status": "error", "message": msg, "data": {"pending": [m["name"] for m in unfinished]}}, ensure_ascii=False))
         else:
             print(f"❌ {msg}")
         sys.exit(1)
+    invalid_modules = []
+    for module in all_modules:
+        if module.get("state") != "completed":
+            continue
+        try:
+            impl_check = run_impl_check(root, project, module)
+        except FileNotFoundError as e:
+            invalid_modules.append({"module": module.get("name"), "error": str(e)})
+            continue
+        if not impl_check["passed"]:
+            invalid_modules.append({
+                "module": module.get("name"),
+                "target": impl_check["target"],
+                "impl_check_output": impl_check["output"],
+            })
+
+    if invalid_modules:
+        msg = "以下 completed 模块未通过实现完整性检查"
+        if args.json:
+            print(json.dumps({"status": "error", "message": msg, "data": {"invalid_modules": invalid_modules}}, ensure_ascii=False))
+        else:
+            print(f"❌ {msg}")
+            for item in invalid_modules:
+                print(f"- {item['module']}: {item.get('target') or item.get('error')}")
+        sys.exit(1)
+
     if args.json:
-        print(json.dumps({"status": "ok", "message": "所有模块已完成（或跳过），可以进入 validate-output", "data": None}, ensure_ascii=False))
+        print(json.dumps({"status": "ok", "message": "所有模块已完成（或跳过），且实现完整性检查通过，可以进入 validate-output", "data": None}, ensure_ascii=False))
     else:
-        print("✅ 所有模块已完成（或跳过），可以进入 validate-output")
+        print("✅ 所有模块已完成（或跳过），且实现完整性检查通过，可以进入 validate-output")
 
 
 def main():
@@ -296,7 +460,7 @@ def main():
         "complete": cmd_complete,
         "skip": cmd_skip,
         "validate": cmd_validate,
-        "render": lambda a, r, p: render_markdown(r, p, load_plan(r, p)),
+        "render": lambda a, r, p: render_markdown(r, p, load_plan(r, p), quiet=a.json),
     }
 
     if args.cmd in dispatch:

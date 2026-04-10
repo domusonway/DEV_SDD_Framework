@@ -106,6 +106,91 @@ def route(path: str, htdocs_root: str) -> str:
         os.unlink(fname)
 
 
+def make_plan_workspace(module_body: str) -> tuple[Path, Path]:
+    import tempfile, json
+
+    workspace_root = Path(tempfile.mkdtemp(prefix="observe_verify_plan_"))
+    project_name = "demo_project"
+    project_root = workspace_root / "projects" / project_name
+    impl_dir = project_root / "harness"
+    spec_dir = project_root / "modules" / "demo"
+    docs_dir = project_root / "docs"
+
+    impl_dir.mkdir(parents=True, exist_ok=True)
+    spec_dir.mkdir(parents=True, exist_ok=True)
+    docs_dir.mkdir(parents=True, exist_ok=True)
+
+    (workspace_root / "CLAUDE.md").write_text(
+        f"PROJECT: {project_name}\nPROJECT_PATH: projects/{project_name}\n",
+        encoding="utf-8",
+    )
+    (impl_dir / "demo.py").write_text(module_body, encoding="utf-8")
+    (spec_dir / "SPEC.md").write_text(
+        """# SPEC: demo\n\n```python\ndef run_demo(value: int) -> int: ...\n```\n""",
+        encoding="utf-8",
+    )
+    (docs_dir / "plan.json").write_text(
+        json.dumps(
+            {
+                "project": "demo_project",
+                "batches": [
+                    {
+                        "name": "Batch 1",
+                        "modules": [
+                            {
+                                "id": "T-001",
+                                "name": "demo",
+                                "spec_path": "modules/demo/SPEC.md",
+                                "impl_path": "harness/demo.py",
+                                "path": "harness/demo.py",
+                                "state": "pending",
+                            }
+                        ],
+                    }
+                ],
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    return workspace_root, project_root
+
+
+def test_check_impl_resolves_impl_path_from_plan_module():
+    import shutil
+
+    workspace_root, _project_root = make_plan_workspace("def run_demo(value: int) -> int:\n    return value + 1\n")
+    try:
+        result = subprocess.run(
+            [sys.executable, str(CHECK_IMPL), "--module", "demo"],
+            capture_output=True,
+            text=True,
+            cwd=str(workspace_root),
+        )
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert "检查通过" in result.stdout
+    finally:
+        shutil.rmtree(workspace_root, ignore_errors=True)
+
+
+def test_check_contract_resolves_spec_and_impl_from_plan_module():
+    import shutil
+
+    workspace_root, _project_root = make_plan_workspace("def run_demo(value: int) -> int:\n    return value + 1\n")
+    try:
+        result = subprocess.run(
+            [sys.executable, str(CHECK_CONTRACT), "--module", "demo"],
+            capture_output=True,
+            text=True,
+            cwd=str(workspace_root),
+        )
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert "CONTRACT OK" in result.stdout
+    finally:
+        shutil.rmtree(workspace_root, ignore_errors=True)
+
+
 if __name__ == "__main__":
     tests = [
         test_skill_exists,
@@ -117,6 +202,8 @@ if __name__ == "__main__":
         test_check_impl_detects_pass,
         test_check_impl_passes_complete_code,
         test_check_impl_detects_hardcoded_return,
+        test_check_impl_resolves_impl_path_from_plan_module,
+        test_check_contract_resolves_spec_and_impl_from_plan_module,
     ]
     failed = 0
     for t in tests:

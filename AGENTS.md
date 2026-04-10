@@ -36,8 +36,8 @@ Step 3: 输出确认语：
 ## 当前激活项目
 
 ```
-PROJECT: VQA_server
-PROJECT_PATH: projects/VQA_server
+PROJECT: HarnessEvaluationFramework
+PROJECT_PATH: projects/HarnessEvaluationFramework
 ```
 
 > 切换项目：修改上方 PROJECT 字段，或使用 /project:switch

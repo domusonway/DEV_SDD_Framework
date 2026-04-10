@@ -19,6 +19,17 @@
 2. `docs/CONTEXT.md`（初始化唯一必需输入）
 3. 项目路径下已存在的目标文件（仅用于覆盖检测与 diff 预览）
 
+### `docs/CONTEXT.md` 的模块划分约定
+- 直接模块：可使用 `### <module-name>`，并在标题下提供字段清单（例如 `- 职责/- 输入/- 输出/- 依赖`）
+- 分组 + 子模块：可使用 `### backend/`、`### frontend/` 这类分组标题，再在其下用 `#### <module-name>` 定义真正模块
+- INIT 只会把带字段清单的标题当作可执行模块；纯分组标题不会写入 `docs/plan.json`
+- 对于分组下的模块，INIT 会将其 SPEC 路径生成为 `modules/<group>/<module>/SPEC.md`
+- `modules/` 默认承载规格文档；实现代码路径与 SPEC 路径是两个独立概念
+- INIT 会在 `plan.json` 中为每个模块生成：
+  - `spec_path`: 规格文件路径，默认 `modules/<...>/SPEC.md`
+  - `impl_path`: 实现代码路径；若 `CONTEXT.md` 的目录结构能推断，则使用真实代码目录，否则回退到模块目录
+- 为兼容旧工具，`path` 当前仍保留为 `impl_path` 的别名，但新规则以 `impl_path` 为准
+
 ## 生成/维护的目标
 - `docs/plan.json` ← 执行状态真相源
 - `docs/PLAN.md` ← `plan.json` 的只读派生视图
@@ -26,7 +37,7 @@
 - `CLAUDE.md` ← 项目入口与加载地图
 - `AGENTS.md` ← 指向项目 `CLAUDE.md`
 - `README.md` ← 项目简介与初始化约定
-- `env/` ← 运行环境目录，包含 `README.md` 和 `requirements.txt`
+- `env/` ← Ubuntu 运行环境目录，包含 `README.md`、`requirements.txt`、`environment.yml`、`start.sh`
 
 ## 执行步骤
 1. 解析目标项目：
@@ -38,11 +49,13 @@
    - 技术栈摘要
    - 模块划分与依赖
 3. 生成结构化 `docs/plan.json`：
-   - `plan.json` 作为 INIT 的核心输出与后续命令真相源
-   - 模块信息来自项目 `docs/CONTEXT.md`，而不是 root `docs/*`
+    - `plan.json` 作为 INIT 的核心输出与后续命令真相源
+    - 模块信息来自项目 `docs/CONTEXT.md`，而不是 root `docs/*`
+    - `plan.json` 中模块条目必须显式区分 `spec_path` 与 `impl_path`
 4. 生成派生文档：
-   - `docs/PLAN.md` 与 `docs/TODO.md`
-   - `CLAUDE.md`、`AGENTS.md`、`README.md`
+    - `docs/PLAN.md` 与 `docs/TODO.md`
+    - `CLAUDE.md`、`AGENTS.md`、`README.md`
+    - `env/README.md`、`env/requirements.txt`、`env/environment.yml`、`env/start.sh`
 5. 检查现有文件冲突：
    - 若目标文件不存在 → 直接创建
    - 若目标文件已存在且内容一致 → 视为 maintain
@@ -95,3 +108,4 @@
 - `--dry-run` 只返回即将写入/覆盖的计划，不实际修改文件，适合测试和人工确认。
 - 若缺少 `docs/CONTEXT.md`，helper 返回 `error`，因为 INIT 无法安全推导项目引导文档。
 - INIT 只处理 bootstrap/overwrite-confirmation 行为；后续计划重定义、TODO 协调、开始工作、修复流程分别由 `REDEFINE`、`UPDATE_TODO`、`START_WORK`、`FIX` 负责。
+- 运行环境模板默认仅考虑 Ubuntu + conda：`env/start.sh` 应能在 Ubuntu shell 中创建/激活 conda 环境并进入项目目录。

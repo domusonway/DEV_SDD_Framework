@@ -19,7 +19,8 @@ Planner 完成依赖分析并输出批次后激活。
 ```
 for 批次 in Planner.批次列表:
     for 模块 in 批次:
-        读取 modules/<模块>/SPEC.md
+        从 docs/plan.json 读取该模块的 spec_path / impl_path
+        读取 <spec_path>
         读取 .claude/skills/tdd-cycle/SKILL.md
         执行完整 RED → GREEN → REFACTOR → VALIDATE → UPDATE-PLAN
         执行 validate-output skill
@@ -37,6 +38,7 @@ for 批次 in Planner.批次列表:
 
 - [ ] 当前批次所有模块测试全绿（pytest 全部 PASS）
 - [ ] 接口与 SPEC 一致（返回类型、异常处理）
+- [ ] 模块实现已写入 `plan.json.impl_path` 指定位置，而不是误写到 `modules/` 规格目录
 - [ ] **docs/PLAN.md 中本批次所有模块已勾选（`- [x]`）**
 - [ ] **memory/INDEX.md 的"模块实现状态"已更新为 ✅**
 - [ ] **memory/INDEX.md 的"接口快照"中本批次接口标记为 🟢**

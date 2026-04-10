@@ -53,6 +53,7 @@ LAYER1_FILES = [
     "test_sub_agent_isolation.py",
     # v3.0 新增 hooks/tools
     "test_context_budget.py",
+    "test_plan_tracker_completion_guard.py",
     # v3.1 新增：Meta-Skill Loop 全组件测试
     "test_meta_skill_loop.py",
     "test_start_work_tool.py",

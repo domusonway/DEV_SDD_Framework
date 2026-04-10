@@ -141,15 +141,74 @@ def parse_deps(raw: str) -> list[str]:
     return [part for part in parts if part and part not in {"无", "None", "none"}]
 
 
+def parse_directory_tree_paths(content: str) -> list[str]:
+    paths: list[str] = []
+    in_block = False
+    stack: list[str] = []
+
+    for raw_line in content.splitlines():
+        line = raw_line.rstrip("\n")
+        stripped = line.strip()
+        if stripped.startswith("```"):
+            in_block = not in_block
+            if not in_block:
+                stack = []
+            continue
+        if not in_block or not stripped:
+            continue
+        marker_match = re.match(r"^(?P<prefix>(?:│   |    )*)(?:├── |└── )(?P<name>.+?)\s*(?:#.*)?$", line)
+        if not marker_match:
+            continue
+        prefix = marker_match.group("prefix")
+        name = marker_match.group("name").strip()
+        level = len(prefix) // 4
+        while len(stack) > level:
+            stack.pop()
+        is_dir = name.endswith("/")
+        clean_name = name.rstrip("/")
+        full_path = "/".join(stack + [clean_name])
+        paths.append(full_path)
+        if is_dir:
+            stack.append(clean_name)
+    return paths
+
+
+def infer_impl_path(module_name: str, group: str | None, directory_paths: list[str]) -> str:
+    normalized_group = (group or "").strip("/")
+    expected_names = [module_name, f"{module_name}.py", f"{module_name}.ts", f"{module_name}.tsx", f"{module_name}.js"]
+
+    prioritized: list[str] = []
+    fallback: list[str] = []
+    for path in directory_paths:
+        tail = path.split("/")[-1]
+        if tail not in expected_names:
+            continue
+        if normalized_group and f"/{normalized_group}/" in f"/{path}/":
+            prioritized.append(path)
+        else:
+            fallback.append(path)
+
+    candidates = prioritized or fallback
+    if candidates:
+        return candidates[0]
+    return f"modules/{normalized_group}/{module_name}".replace("//", "/") if normalized_group else f"modules/{module_name}"
+
+
 def parse_modules(content: str) -> list[dict[str, Any]]:
     section = extract_section(content, "模块划分")
     if not section:
         return []
 
-    matches = list(re.finditer(r"^###\s+(.+)$", section, re.MULTILINE))
+    directory_paths = parse_directory_tree_paths(content)
+
+    matches = list(re.finditer(r"^(#{3,6})\s+(.+)$", section, re.MULTILINE))
     modules: list[dict[str, Any]] = []
+    heading_stack: list[tuple[int, str]] = []
     for index, match in enumerate(matches):
-        name = match.group(1).strip()
+        level = len(match.group(1))
+        name = match.group(2).strip()
+        while heading_stack and heading_stack[-1][0] >= level:
+            heading_stack.pop()
         start = match.end()
         end = matches[index + 1].start() if index + 1 < len(matches) else len(section)
         body = section[start:end]
@@ -158,13 +217,27 @@ def parse_modules(content: str) -> list[dict[str, Any]]:
             field_match = re.match(r"^-\s*([^:：]+)[:：]\s*(.+)$", line.strip())
             if field_match:
                 fields[field_match.group(1).strip()] = field_match.group(2).strip()
+        if not fields:
+            heading_stack.append((level, name))
+            continue
+        group = None
+        for _, ancestor_name in reversed(heading_stack):
+            cleaned = ancestor_name.strip().strip("/")
+            if cleaned:
+                group = cleaned
+                break
+        spec_path = f"modules/{group}/{name}/SPEC.md" if group else f"modules/{name}/SPEC.md"
+        impl_path = infer_impl_path(name, group, directory_paths)
         modules.append({
             "name": name,
+            "spec_path": spec_path,
+            "impl_path": impl_path,
             "responsibility": fields.get("职责", "见 docs/CONTEXT.md 模块说明"),
             "input": fields.get("输入", "见 docs/CONTEXT.md 模块说明"),
             "output": fields.get("输出", "见 docs/CONTEXT.md 模块说明"),
             "deps": parse_deps(fields.get("依赖", "无")),
         })
+        heading_stack.append((level, name))
     return modules
 
 
@@ -190,6 +263,9 @@ def build_batches(modules: list[dict[str, Any]]) -> list[dict[str, Any]]:
         for module in ready:
             batch_modules.append({
                 "name": module["name"],
+                "spec_path": module.get("spec_path") or f"modules/{module['name']}/SPEC.md",
+                "impl_path": module.get("impl_path") or f"modules/{module['name']}",
+                "path": module.get("impl_path") or f"modules/{module['name']}",
                 "complexity": "M",
                 "risk": "" if set(module.get("deps", [])) <= completed else "依赖关系待整理",
                 "deps": module.get("deps", []),
@@ -345,15 +421,17 @@ def render_claude(project_name: str, goal: str, background: str, modules: list[d
         "",
         "## 模块列表",
         "",
-        "| 模块 | 路径 | SPEC | 状态 |",
-        "|------|------|------|------|",
+        "| 模块 | 实现路径 | SPEC | 状态 |",
+        "|------|----------|------|------|",
     ]
     for module in modules:
         name = module["name"]
-        lines.append(f"| {name} | modules/{name}/ | [SPEC](modules/{name}/SPEC.md) | 🔴 未开始 |")
+        impl_path = str(module.get("impl_path") or f"modules/{name}").rstrip("/")
+        spec_path = str(module.get("spec_path") or f"modules/{name}/SPEC.md")
+        lines.append(f"| {name} | {impl_path} | [SPEC]({spec_path}) | 🔴 未开始 |")
 
     if not modules:
-        lines.append("| 待定义模块 | modules/<name>/ | [SPEC](modules/<name>/SPEC.md) | 🔴 未开始 |")
+        lines.append("| 待定义模块 | modules/<name>/ 或项目实际代码目录 | [SPEC](modules/<name>/SPEC.md) | 🔴 未开始 |")
 
     lines.extend([
         "",
@@ -397,6 +475,7 @@ def render_readme(project_name: str, goal: str, background: str, modules: list[d
         "- `docs/CONTEXT.md` 是 INIT 的输入来源",
         "- `docs/plan.json` 是执行状态真相源",
         "- `docs/PLAN.md` 与 `docs/TODO.md` 为派生/补充文档",
+        "- `modules/` 默认承载规格文档；实现代码路径由 `plan.json.impl_path` 显式声明",
         "",
         "## 模块概览",
     ]
@@ -409,77 +488,121 @@ def render_readme(project_name: str, goal: str, background: str, modules: list[d
     return "\n".join(lines)
 
 
-def render_env_readme(project_name: str) -> str:
+def infer_python_version(tech_stack: dict[str, str]) -> str:
+    language = tech_stack.get("语言", "")
+    match = re.search(r"Python\s+([0-9]+(?:\.[0-9]+)?)", language, re.IGNORECASE)
+    if match:
+        return match.group(1)
+    return "3.11"
+
+
+def slugify_env_name(project_name: str) -> str:
+    slug = re.sub(r"[^a-z0-9]+", "-", project_name.lower()).strip("-")
+    return slug or "dev-sdd-project"
+
+
+def render_env_readme(project_name: str, python_version: str, env_name: str) -> str:
     """Generate env/README.md content."""
     lines = [
         f"# {project_name} - 运行环境说明",
         "",
-        "本目录用于隔离项目依赖，避免污染系统环境。",
+        "本目录仅面向 Ubuntu 开发环境，使用 conda 管理项目依赖并提供一键进入脚本。",
         "",
         "## 环境初始化",
         "",
-        "1. 创建虚拟环境（推荐使用 Python 3.10+）：",
+        f"1. 确保 Ubuntu 已安装 conda，默认环境名为 `{env_name}`：",
         "   ```bash",
-        "   python3 -m venv env",
+        "   conda --version",
         "   ```",
         "",
-        "2. 激活虚拟环境：",
-        "   - Linux/macOS:",
-        "     ```bash",
-        "     source env/bin/activate",
-        "     ```",
-        "   - Windows (PowerShell):",
-        "     ```powershell",
-        "     .\\env\\Scripts\\Activate.ps1",
-        "     ```",
-        "   - Windows (cmd.exe):",
-        "     ```cmd",
-        "     .\\env\\Scripts\\activate.bat",
-        "     ```",
-        "",
-        "3. 安装依赖：",
+        "2. 一键创建并进入项目环境：",
         "   ```bash",
-        "   pip install -r requirements.txt",
+        "   bash env/start.sh",
+        "   ```",
+        "",
+        "   首次执行会自动创建 conda 环境、安装 pip 依赖并进入项目根目录。",
+        "",
+        f"3. 手动管理环境（可选，Python {python_version}）：",
+        "   ```bash",
+        "   conda env create -f env/environment.yml",
+        f"   conda activate {env_name}",
+        "   pip install -r env/requirements.txt",
         "   ```",
         "",
         "## 依赖管理",
         "",
-        "- 所有项目依赖应声明在 `env/requirements.txt` 中",
-        "- 使用 `pip freeze > env/requirements.txt` 更新依赖锁定文件",
-        "- 开发依赖（如测试框架、lint工具）可放在 `env/dev-requirements.txt` 或使用 extras_require",
+        "- conda 基础环境定义放在 `env/environment.yml` 中",
+        "- Python 包依赖放在 `env/requirements.txt` 中",
+        "- 更新 pip 依赖后可使用 `pip freeze > env/requirements.txt` 刷新锁定文件",
         "",
-        "## 环境迁移",
+        "## 一键脚本说明",
         "",
-        "该目录已加入 `.gitignore`，不会被提交到版本控制系统。",
-        "新开发者需按上述步骤重新创建本地环境。",
+        "- `env/start.sh` 仅考虑 Ubuntu shell（bash）",
+        "- 环境不存在时自动创建，存在时直接激活",
+        "- 脚本会进入项目根目录并打开交互 shell",
         "",
-        "> ⚠️ 请勿直接在系统Python环境中安装项目依赖，以免造成版本冲突和环境污染。",
+        "> ⚠️ 请勿直接在系统 Python 环境中安装项目依赖，以免造成版本冲突和环境污染。",
     ]
     return "\n".join(lines)
 
 
 def render_env_requirements() -> str:
     """Generate env/requirements.txt content."""
-    # 基础依赖 - 根据框架需求提供常用依赖模板
     lines = [
         "# DEV SDD Framework 项目依赖",
         "# 根据实际项目需求添加具体依赖包",
         "",
-        "# 框架核心依赖（根据项目语言选择）",
-        "# 例如：",
-        "# requests>=2.25.0  # HTTP客户端",
-        "# pyyaml>=5.4.0     # YAML解析",
-        "#",
-        "# 测试相关（根据项目测试框架添加）",
-        "# pytest>=6.0.0         # 测试框架",
-        "# pytest-cov>=2.10.0    # 覆盖率报告",
-        "#",
-        "# 代码质量工具",
-        "# flake8>=3.8.0         # linting",
-        "# black>=21.0.0         # 代码格式化",
-        "# mypy>=0.8.0           # 类型检查（Python项目）",
+        "PyYAML>=6.0",
+        "pytest>=8.0",
         "",
-        "# 实际项目请根据 SPEC.md 中的技术栈声明添加具体依赖",
+        "# 其他依赖请根据 SPEC.md 与技术栈继续补充",
+    ]
+    return "\n".join(lines)
+
+
+def render_env_environment_yml(env_name: str, python_version: str) -> str:
+    lines = [
+        f"name: {env_name}",
+        "channels:",
+        "  - conda-forge",
+        "  - defaults",
+        "dependencies:",
+        f"  - python={python_version}",
+        "  - pip",
+        "  - pip:",
+        "      - -r requirements.txt",
+        "",
+    ]
+    return "\n".join(lines)
+
+
+def render_env_start_script(env_name: str) -> str:
+    lines = [
+        "#!/usr/bin/env bash",
+        "set -euo pipefail",
+        "",
+        "SCRIPT_DIR=\"$(cd \"$(dirname \"${BASH_SOURCE[0]}\")\" && pwd)\"",
+        "PROJECT_ROOT=\"$(cd \"${SCRIPT_DIR}/..\" && pwd)\"",
+        f"ENV_NAME=\"${{DEV_SDD_CONDA_ENV:-{env_name}}}\"",
+        "",
+        "if ! command -v conda >/dev/null 2>&1; then",
+        "  echo \"[env/start.sh] 未检测到 conda，请先在 Ubuntu 上安装 Miniconda/Anaconda\" >&2",
+        "  exit 1",
+        "fi",
+        "",
+        "CONDA_BASE=\"$(conda info --base)\"",
+        "source \"${CONDA_BASE}/etc/profile.d/conda.sh\"",
+        "",
+        "if ! conda env list | awk '{print $1}' | grep -Fxq \"${ENV_NAME}\"; then",
+        "  echo \"[env/start.sh] 创建 conda 环境: ${ENV_NAME}\"",
+        "  conda env create -f \"${SCRIPT_DIR}/environment.yml\" -n \"${ENV_NAME}\"",
+        "fi",
+        "",
+        "conda activate \"${ENV_NAME}\"",
+        "cd \"${PROJECT_ROOT}\"",
+        "echo \"[env/start.sh] 已进入 ${ENV_NAME} @ ${PROJECT_ROOT}\"",
+        "exec \"${SHELL:-/bin/bash}\" -i",
+        "",
     ]
     return "\n".join(lines)
 
@@ -522,6 +645,8 @@ def build_init_spec(target_root: Path) -> InitSpec:
     goal = first_nonempty_paragraph(extract_section(content, "项目目标"))
     background = first_nonempty_paragraph(extract_section(content, "背景"))
     tech_stack = parse_tech_stack(content)
+    python_version = infer_python_version(tech_stack)
+    env_name = slugify_env_name(project_name)
     modules = parse_modules(content)
     plan = build_plan(project_name, modules)
     workflow_cli_common.ensure_plan_stable_ids(plan)
@@ -533,8 +658,10 @@ def build_init_spec(target_root: Path) -> InitSpec:
         "docs/plan.json": json.dumps(plan, ensure_ascii=False, indent=2) + "\n",
         "docs/PLAN.md": render_plan_markdown(plan),
         "docs/TODO.md": managed_todo,
-        "env/README.md": render_env_readme(project_name),
+        "env/README.md": render_env_readme(project_name, python_version, env_name),
         "env/requirements.txt": render_env_requirements(),
+        "env/environment.yml": render_env_environment_yml(env_name, python_version),
+        "env/start.sh": render_env_start_script(env_name),
     }
     return InitSpec(
         project_name=project_name,
@@ -573,6 +700,8 @@ def write_files(target_root: Path, files: dict[str, str]) -> None:
         path = target_root / rel
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(content, encoding="utf-8")
+        if rel == "env/start.sh":
+            path.chmod(path.stat().st_mode | 0o111)
 
 
 def run(target_arg: str | None, dry_run: bool, confirm_overwrite: str | None) -> dict[str, Any]:

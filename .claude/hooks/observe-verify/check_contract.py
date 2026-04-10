@@ -14,12 +14,23 @@ observe-verify/check_contract.py
   python3 check_contract.py --spec modules/response/SPEC.md --impl modules/response/  # 扫描目录
 """
 import ast
+import importlib.util
 import re
 import sys
 import argparse
+import json
 from pathlib import Path
 from dataclasses import dataclass
 from typing import Optional, List
+
+
+TOOLS_ROOT = Path(__file__).resolve().parents[2] / "tools"
+COMMON_SPEC = importlib.util.spec_from_file_location("workflow_cli_common", TOOLS_ROOT / "workflow_cli_common.py")
+assert COMMON_SPEC and COMMON_SPEC.loader
+workflow_cli_common = importlib.util.module_from_spec(COMMON_SPEC)
+COMMON_SPEC.loader.exec_module(workflow_cli_common)
+
+ROOT = workflow_cli_common.find_framework_root(__file__)
 
 
 @dataclass
@@ -184,18 +195,70 @@ def check_contract(spec: SpecInterface, impl_interfaces: List[ImplInterface]) ->
     return issues
 
 
+def resolve_module_paths(module_name: str, project_arg: str | None) -> tuple[str, str]:
+    target_root = _detect_local_project_root(project_arg)
+    if target_root is None:
+        target_root, _target_label = workflow_cli_common.resolve_target_project(project_arg, ROOT, Path.cwd())
+    if target_root is None:
+        raise FileNotFoundError("未检测到激活项目，也未提供 --project")
+    plan_path = target_root / "docs" / "plan.json"
+    if not plan_path.exists():
+        raise FileNotFoundError(f"plan.json 不存在: {plan_path}")
+    plan = json.loads(plan_path.read_text(encoding="utf-8"))
+    for batch in plan.get("batches", []):
+        for module in batch.get("modules", []):
+            if module.get("name") != module_name:
+                continue
+            spec_path = str(module.get("spec_path") or "").strip()
+            impl_path = str(module.get("impl_path") or module.get("path") or "").strip()
+            if not spec_path or not impl_path:
+                raise FileNotFoundError(f"模块 {module_name} 缺少 spec_path 或 impl_path")
+            spec_target = target_root / spec_path
+            impl_target = target_root / impl_path
+            if not spec_target.exists():
+                raise FileNotFoundError(f"模块 {module_name} 的 spec_path 不存在: {spec_target}")
+            if not impl_target.exists():
+                raise FileNotFoundError(f"模块 {module_name} 的 impl_path 不存在: {impl_target}")
+            return str(spec_target), str(impl_target)
+    raise FileNotFoundError(f"plan.json 中不存在模块: {module_name}")
+
+
+def _detect_local_project_root(project_arg: str | None) -> Path | None:
+    if project_arg:
+        return None
+    current = Path.cwd().resolve()
+    for candidate in [current] + list(current.parents):
+        if (candidate / "docs" / "plan.json").exists():
+            return candidate
+        claude_md = candidate / "CLAUDE.md"
+        if claude_md.exists():
+            project = workflow_cli_common.parse_project_from_text(workflow_cli_common.safe_read_text(claude_md))
+            if project and (candidate / "projects" / project / "docs" / "plan.json").exists():
+                return (candidate / "projects" / project).resolve()
+    return None
+
+
 def main():
     parser = argparse.ArgumentParser(description="接口契约验证工具")
-    parser.add_argument("--spec", required=True, help="SPEC.md 路径")
-    parser.add_argument("--impl", required=True, help="实现文件或目录路径")
+    parser.add_argument("--spec", help="SPEC.md 路径")
+    parser.add_argument("--impl", help="实现文件或目录路径")
+    parser.add_argument("--module", help="模块名；从 plan.json 解析 spec_path/impl_path")
+    parser.add_argument("--project", help="项目名或项目路径；与 --module 搭配使用")
     args = parser.parse_args()
 
-    spec_interfaces = parse_spec_interfaces(args.spec)
+    if args.module:
+        spec_path, impl_arg = resolve_module_paths(args.module, args.project)
+    elif args.spec and args.impl:
+        spec_path, impl_arg = args.spec, args.impl
+    else:
+        parser.error("必须提供 --spec 与 --impl，或提供 --module [--project]")
+
+    spec_interfaces = parse_spec_interfaces(spec_path)
     if not spec_interfaces:
-        print(f"⚠️ SPEC 中未找到可解析的函数定义（检查代码块格式）: {args.spec}")
+        print(f"⚠️ SPEC 中未找到可解析的函数定义（检查代码块格式）: {spec_path}")
         sys.exit(0)
 
-    impl_path = Path(args.impl)
+    impl_path = Path(impl_arg)
     if impl_path.is_dir():
         impl_files = list(impl_path.rglob("*.py"))
         impl_files = [f for f in impl_files if "test_" not in f.name and "__pycache__" not in str(f)]

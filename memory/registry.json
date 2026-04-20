@@ -1,7 +1,24 @@
 {
-  "generated_at": "2026-03-31T04:58:15.120032",
-  "framework_root": "/home/claude/sdd-framework",
+  "generated_at": "2026-04-08T22:25:55.377704",
+  "framework_root": "/media/ptn/748095058094CECC/workspace/linguozhu/projects/agent_team/DEV_SDD_Framework",
   "entries": [
+    {
+      "id": "complexity-assess",
+      "type": "skill",
+      "path": ".claude/skills/complexity-assess/SKILL.md",
+      "title": "complexity-assess",
+      "tags": [
+        "tdd",
+        "memory",
+        "skill",
+        "agent",
+        "测试"
+      ],
+      "version": "",
+      "recommended": true,
+      "created": "",
+      "last_updated": "2026-03-12"
+    },
     {
       "id": "context-probe",
       "type": "skill",
@@ -35,23 +52,634 @@
       "last_updated": "2026-03-31"
     },
     {
-      "id": "agents",
-      "type": "agent",
-      "path": ".claude/agents/memory-keeper.md",
-      "title": "Memory Keeper",
+      "id": "diagnose-bug",
+      "type": "skill",
+      "path": ".claude/skills/diagnose-bug/SKILL.md",
+      "title": "diagnose-bug",
       "tags": [
+        "recv",
+        "red",
+        "green",
+        "memory",
+        "bytes",
+        "str",
+        "hook",
+        "skill",
+        "诊断",
+        "bug"
+      ],
+      "version": "",
+      "recommended": true,
+      "created": "",
+      "last_updated": "2026-03-12"
+    },
+    {
+      "id": "memory-update",
+      "type": "skill",
+      "path": ".claude/skills/memory-update/SKILL.md",
+      "title": "memory-update",
+      "tags": [
+        "red",
+        "green",
+        "memory",
+        "skill",
+        "候选",
+        "规则",
+        "bug",
+        "refactor",
+        "validate"
+      ],
+      "version": "",
+      "recommended": true,
+      "created": "",
+      "last_updated": "2026-04-04"
+    },
+    {
+      "id": "observe-verify",
+      "type": "skill",
+      "path": ".claude/skills/observe-verify/SKILL.md",
+      "title": "observe-verify",
+      "tags": [
+        "socket",
+        "recv",
+        "send",
+        "tdd",
+        "green",
+        "bytes",
+        "str",
+        "hook",
+        "skill",
+        "agent",
+        "网络",
+        "测试",
+        "bug",
+        "validate"
+      ],
+      "version": "",
+      "recommended": true,
+      "created": "",
+      "last_updated": "2026-03-21"
+    },
+    {
+      "id": "sub-agent-isolation",
+      "type": "skill",
+      "path": ".claude/skills/sub-agent-isolation/SKILL.md",
+      "title": "sub-agent-isolation",
+      "tags": [
+        "green",
+        "memory",
+        "hook",
+        "skill",
+        "agent",
+        "测试"
+      ],
+      "version": "",
+      "recommended": true,
+      "created": "",
+      "last_updated": "2026-03-21"
+    },
+    {
+      "id": "tdd-cycle",
+      "type": "skill",
+      "path": ".claude/skills/tdd-cycle/SKILL.md",
+      "title": "tdd-cycle",
+      "tags": [
+        "socket",
+        "recv",
+        "send",
+        "http",
+        "tdd",
+        "red",
+        "green",
+        "memory",
+        "hook",
+        "skill",
+        "网络",
+        "测试",
+        "refactor",
+        "validate"
+      ],
+      "version": "",
+      "recommended": true,
+      "created": "",
+      "last_updated": "2026-03-14"
+    },
+    {
+      "id": "validate-output",
+      "type": "skill",
+      "path": ".claude/skills/validate-output/SKILL.md",
+      "title": "validate-output",
+      "tags": [
+        "recv",
+        "send",
+        "http",
+        "green",
+        "memory",
+        "bytes",
+        "str",
+        "hook",
+        "skill",
+        "网络",
+        "测试",
+        "validate"
+      ],
+      "version": "",
+      "recommended": true,
+      "created": "",
+      "last_updated": "2026-03-14"
+    },
+    {
+      "id": "context-budget",
+      "type": "hook",
+      "path": ".claude/hooks/context-budget/HOOK.md",
+      "title": "context-budget",
+      "tags": [
+        "tdd",
+        "red",
+        "green",
+        "memory",
+        "hook",
+        "skill",
+        "规则",
+        "refactor"
+      ],
+      "version": "",
+      "recommended": true,
+      "created": "",
+      "last_updated": "2026-03-21"
+    },
+    {
+      "id": "hook-observer",
+      "type": "hook",
+      "path": ".claude/hooks/hook-observer/HOOK.md",
+      "title": "hook-observer",
+      "tags": [
+        "socket",
+        "recv",
+        "send",
+        "asyncio",
+        "aiohttp",
+        "websocket",
+        "http",
+        "red",
+        "green",
+        "memory",
+        "threading",
+        "hook",
+        "skill",
+        "候选",
+        "规则",
+        "测试"
+      ],
+      "version": "",
+      "recommended": true,
+      "created": "",
+      "last_updated": "2026-03-30"
+    },
+    {
+      "id": "network-guard",
+      "type": "hook",
+      "path": ".claude/hooks/network-guard/HOOK.md",
+      "title": "network-guard",
+      "tags": [
+        "socket",
+        "recv",
+        "send",
+        "hook",
+        "网络",
+        "测试",
+        "bug"
+      ],
+      "version": "",
+      "recommended": true,
+      "created": "",
+      "last_updated": "2026-03-12"
+    },
+    {
+      "id": "permission-auditor",
+      "type": "hook",
+      "path": ".claude/hooks/permission-auditor/HOOK.md",
+      "title": "permission-auditor",
+      "tags": [
+        "green",
+        "memory",
+        "hook",
+        "skill",
+        "候选",
+        "规则"
+      ],
+      "version": "",
+      "recommended": true,
+      "created": "",
+      "last_updated": "2026-03-30"
+    },
+    {
+      "id": "post-green",
+      "type": "hook",
+      "path": ".claude/hooks/post-green/HOOK.md",
+      "title": "post-green",
+      "tags": [
+        "red",
+        "green",
         "memory",
         "hook",
         "skill",
         "agent",
         "候选",
         "规则",
+        "测试",
+        "bug",
         "validate"
       ],
       "version": "",
       "recommended": true,
       "created": "",
-      "last_updated": "2026-03-31"
+      "last_updated": "2026-04-04"
+    },
+    {
+      "id": "session-snapshot",
+      "type": "hook",
+      "path": ".claude/hooks/session-snapshot/HOOK.md",
+      "title": "session-snapshot",
+      "tags": [
+        "red",
+        "green",
+        "memory",
+        "hook",
+        "规则",
+        "测试",
+        "bug"
+      ],
+      "version": "",
+      "recommended": true,
+      "created": "",
+      "last_updated": "2026-04-04"
+    },
+    {
+      "id": "stuck-detector",
+      "type": "hook",
+      "path": ".claude/hooks/stuck-detector/HOOK.md",
+      "title": "stuck-detector",
+      "tags": [
+        "recv",
+        "tdd",
+        "red",
+        "green",
+        "bytes",
+        "str",
+        "hook",
+        "skill",
+        "测试",
+        "诊断",
+        "bug"
+      ],
+      "version": "",
+      "recommended": true,
+      "created": "",
+      "last_updated": "2026-03-12"
+    },
+    {
+      "id": "test-sync",
+      "type": "hook",
+      "path": ".claude/hooks/test-sync/HOOK.md",
+      "title": "test-sync",
+      "tags": [
+        "hook",
+        "skill",
+        "候选",
+        "规则",
+        "测试"
+      ],
+      "version": "",
+      "recommended": true,
+      "created": "",
+      "last_updated": "2026-03-30"
+    },
+    {
+      "id": "agents",
+      "type": "agent",
+      "path": ".claude/agents/agent-auditor.md",
+      "title": "Agent-Auditor",
+      "tags": [
+        "http",
+        "green",
+        "memory",
+        "str",
+        "hook",
+        "agent",
+        "候选",
+        "规则",
+        "测试",
+        "validate"
+      ],
+      "version": "",
+      "recommended": true,
+      "created": "",
+      "last_updated": "2026-04-02"
+    },
+    {
+      "id": "MEM_F_I_001",
+      "type": "memory",
+      "path": "memory/important/MEM_F_I_001.md",
+      "title": "集成测试客户端也须捕获 ConnectionResetError",
+      "tags": [
+        "recv",
+        "send",
+        "http",
+        "规则",
+        "测试",
+        "validate"
+      ],
+      "version": "",
+      "recommended": true,
+      "created": "2026-03-03",
+      "last_updated": "2026-03-12"
+    },
+    {
+      "id": "MEM_F_I_002",
+      "type": "memory",
+      "path": "memory/important/MEM_F_I_002.md",
+      "title": "socketpair 比真实 socket 更适合单元测试",
+      "tags": [
+        "socket",
+        "recv",
+        "send",
+        "http",
+        "规则",
+        "网络",
+        "测试",
+        "validate"
+      ],
+      "version": "",
+      "recommended": true,
+      "created": "2026-03-03",
+      "last_updated": "2026-03-12"
+    },
+    {
+      "id": "MEM_F_I_003",
+      "type": "memory",
+      "path": "memory/important/MEM_F_I_003.md",
+      "title": "MockSocket 会掩盖隐式契约 Bug，E2E 才能发现",
+      "tags": [
+        "socket",
+        "send",
+        "http",
+        "tcp",
+        "bytes",
+        "str",
+        "规则",
+        "测试",
+        "bug",
+        "validate"
+      ],
+      "version": "",
+      "recommended": true,
+      "created": "2026-03-03",
+      "last_updated": "2026-03-12"
+    },
+    {
+      "id": "MEM_F_I_004",
+      "type": "memory",
+      "path": "memory/important/MEM_F_I_004.md",
+      "title": "C int fd → Python socket 对象，size 参数省略",
+      "tags": [
+        "socket",
+        "recv",
+        "send",
+        "http",
+        "str",
+        "规则",
+        "validate"
+      ],
+      "version": "",
+      "recommended": true,
+      "created": "2026-03-03",
+      "last_updated": "2026-03-12"
+    },
+    {
+      "id": "MEM_F_I_005",
+      "type": "memory",
+      "path": "memory/important/MEM_F_I_005.md",
+      "title": "C fork+execl → Python subprocess.Popen（多线程安全）",
+      "tags": [
+        "http",
+        "red",
+        "str",
+        "规则",
+        "validate"
+      ],
+      "version": "",
+      "recommended": true,
+      "created": "2026-03-03",
+      "last_updated": "2026-03-12"
+    },
+    {
+      "id": "MEM_F_I_006",
+      "type": "memory",
+      "path": "memory/important/MEM_F_I_006.md",
+      "title": "RED 阶段先确认测试 FAIL，直接 PASS = 测试写错了",
+      "tags": [
+        "http",
+        "tdd",
+        "red",
+        "规则",
+        "测试",
+        "诊断",
+        "validate"
+      ],
+      "version": "",
+      "recommended": true,
+      "created": "2026-03-03",
+      "last_updated": "2026-03-12"
+    },
+    {
+      "id": "MEM_F_I_007",
+      "type": "memory",
+      "path": "memory/important/MEM_F_I_007.md",
+      "title": "共享状态用 RLock，不用 Lock（防同线程递归死锁）",
+      "tags": [
+        "http",
+        "threading",
+        "规则",
+        "validate"
+      ],
+      "version": "",
+      "recommended": true,
+      "created": "2026-03-03",
+      "last_updated": "2026-03-12"
+    },
+    {
+      "id": "MEM_F_C_001",
+      "type": "memory",
+      "path": "memory/critical/MEM_F_C_001.md",
+      "title": "校验器必须先用参考输出自测（应 PASS）再交付",
+      "tags": [
+        "http",
+        "red",
+        "规则",
+        "bug",
+        "validate"
+      ],
+      "version": "",
+      "recommended": true,
+      "created": "2026-03-03",
+      "last_updated": "2026-03-12"
+    },
+    {
+      "id": "MEM_F_C_002",
+      "type": "memory",
+      "path": "memory/critical/MEM_F_C_002.md",
+      "title": "SPEC 接口输出规格必须明确 dtype（bytes/str/int）",
+      "tags": [
+        "socket",
+        "send",
+        "http",
+        "bytes",
+        "str",
+        "规则",
+        "validate"
+      ],
+      "version": "",
+      "recommended": true,
+      "created": "2026-03-03",
+      "last_updated": "2026-03-12"
+    },
+    {
+      "id": "MEM_F_C_003",
+      "type": "memory",
+      "path": "memory/critical/MEM_F_C_003.md",
+      "title": "测试失败只改实现，禁止修改断言或 skip",
+      "tags": [
+        "http",
+        "tdd",
+        "red",
+        "memory",
+        "规则",
+        "测试",
+        "bug",
+        "validate"
+      ],
+      "version": "",
+      "recommended": true,
+      "created": "2026-03-03",
+      "last_updated": "2026-03-12"
+    },
+    {
+      "id": "MEM_F_C_004",
+      "type": "memory",
+      "path": "memory/critical/MEM_F_C_004.md",
+      "title": "socket recv 循环必须精确捕获三类异常，禁用 except Exception",
+      "tags": [
+        "socket",
+        "recv",
+        "http",
+        "tcp",
+        "规则",
+        "bug",
+        "validate"
+      ],
+      "version": "",
+      "recommended": true,
+      "created": "2026-03-03",
+      "last_updated": "2026-03-12"
+    },
+    {
+      "id": "MEM_F_C_005",
+      "type": "memory",
+      "path": "memory/critical/MEM_F_C_005.md",
+      "title": "recv 返回 b'' 表示连接关闭，必须检查否则死循环",
+      "tags": [
+        "recv",
+        "http",
+        "red",
+        "bytes",
+        "规则",
+        "validate"
+      ],
+      "version": "",
+      "recommended": true,
+      "created": "2026-03-03",
+      "last_updated": "2026-03-12"
+    },
+    {
+      "id": "concurrency",
+      "type": "memory",
+      "path": "memory/domains/concurrency/INDEX.md",
+      "title": "Concurrency 领域记忆 · 索引",
+      "tags": [
+        "asyncio",
+        "http",
+        "threading",
+        "hook",
+        "agent",
+        "候选",
+        "规则",
+        "网络"
+      ],
+      "version": "",
+      "recommended": true,
+      "created": "",
+      "last_updated": "2026-03-30"
+    },
+    {
+      "id": "http",
+      "type": "memory",
+      "path": "memory/domains/http/INDEX.md",
+      "title": "HTTP 领域记忆 · 索引",
+      "tags": [
+        "http",
+        "str",
+        "规则",
+        "测试"
+      ],
+      "version": "",
+      "recommended": true,
+      "created": "",
+      "last_updated": "2026-03-12"
+    },
+    {
+      "id": "tdd_patterns",
+      "type": "memory",
+      "path": "memory/domains/tdd_patterns/INDEX.md",
+      "title": "TDD Patterns 领域记忆 · 索引",
+      "tags": [
+        "socket",
+        "tdd",
+        "red",
+        "green",
+        "bytes",
+        "str",
+        "skill",
+        "agent",
+        "候选",
+        "规则",
+        "测试"
+      ],
+      "version": "",
+      "recommended": true,
+      "created": "",
+      "last_updated": "2026-03-30"
+    },
+    {
+      "id": "type_safety",
+      "type": "memory",
+      "path": "memory/domains/type_safety/INDEX.md",
+      "title": "Type Safety 领域记忆 · 索引",
+      "tags": [
+        "socket",
+        "send",
+        "http",
+        "tdd",
+        "bytes",
+        "str",
+        "候选",
+        "规则",
+        "网络"
+      ],
+      "version": "",
+      "recommended": true,
+      "created": "",
+      "last_updated": "2026-03-30"
     }
   ]
 }

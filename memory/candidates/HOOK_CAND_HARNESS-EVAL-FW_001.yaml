@@ -1,0 +1,32 @@
+id: HOOK_CAND_HARNESS-EVAL-FW_001
+candidate_type: hook_check
+source_observer: hook-observer
+source_project: HarnessEvaluationFramework
+observed_evidence: |
+  During HarnessEvaluationFramework delivery, two framework-side helper scripts behaved differently depending on the current working directory.
+
+  1. `.claude/hooks/post-green/run.sh` computed `FRAMEWORK_ROOT` from a relative script path and failed when invoked from the framework root with a relative hook path, so its tool-health step aborted even though validation had already passed.
+  2. `.claude/hooks/session-snapshot/write.py` only wrote project session files correctly when executed from the project root; from the framework root it produced a success message but did not persist the expected project session markdown.
+
+  Both issues share the same underlying pattern: hook/runtime helpers should resolve framework/project roots from the script file location or explicit arguments, not from the caller's cwd heuristics.
+observed_pattern_key: "hook-observer:cwd-sensitive-hook-runtime:.claude/hooks/post-green/run.sh"
+proposed_rule: "Framework hook and session helper scripts must resolve framework/project roots from __file__ or explicit target arguments, never rely on the caller's cwd to infer the active project."
+target_file: .claude/hooks/post-green/run.sh
+proposed_diff: |
+  Harden framework helper scripts against cwd-sensitive execution:
+  - `.claude/hooks/post-green/run.sh`: derive `FRAMEWORK_ROOT` from the absolute script file path before invoking nested helpers, so running the hook from the framework root or any other cwd behaves the same.
+  - `.claude/hooks/session-snapshot/write.py`: accept an explicit project argument or derive the project root from the script invocation target, and fail loudly if the destination session file was not created.
+  - `.claude/hooks/session-snapshot/HOOK.md`: document that the project-root invocation is authoritative until the helper supports explicit project selection.
+
+  This candidate captures a framework-level reliability issue exposed while finishing a full 9-module project, where path-sensitive helpers made post-green and session bookkeeping non-deterministic.
+confidence: medium
+validated_projects:
+  - HarnessEvaluationFramework
+status: pending_review
+auto_attach: false
+auto_attach_triggered_projects: []
+auto_attach_issues: []
+created: 2026-04-09
+domain: agent_workflow
+secondary_target: .claude/hooks/session-snapshot/write.py
+failure_count: 1

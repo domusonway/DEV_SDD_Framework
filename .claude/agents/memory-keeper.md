@@ -65,8 +65,8 @@ TOOL_SIGNAL 输出由 run.sh 写入当前 session（F2修复），供 Meta-Skill
 ## 记忆沉淀报告 — <项目名> <日期>
 
 ### 新增项目记忆
-- P_XXX_001: [标题]
-- P_XXX_002: [标题]
+- memory/network/gateway-routing.md: [标题]
+- memory/testing/pytest-entrypoint.md: [标题]
 
 ### 更新框架记忆（如有）
 - 无 / MEM_F_I_00X 升级为 CRITICAL

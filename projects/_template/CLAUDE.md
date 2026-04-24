@@ -40,11 +40,11 @@
 | 项目背景 | `docs/CONTEXT.md` |
 | 执行计划（权威状态） | `docs/plan.json` |
 | 执行计划（只读视图） | `docs/PLAN.md` |
-| 当前执行备注 | `docs/TODO.md` |
+| 任务子文档索引 | `docs/sub_docs/` |
 | 项目记忆 | `memory/INDEX.md` |
 | 上次会话 | `memory/sessions/` 最新文件 |
 
-> 项目执行状态以 `docs/plan.json` 为准；`docs/PLAN.md` 是由工具生成的只读视图，`docs/TODO.md` 仅记录项目级执行备注、临时跟进和审计信息。
+> 项目执行状态以 `docs/plan.json` 为准；`docs/sub_docs/` 承载任务实现与分析细节；`docs/PLAN.md` 是由工具生成的只读视图。
 
 ---
 

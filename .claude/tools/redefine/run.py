@@ -5,7 +5,7 @@ redefine/run.py
 用途:
   /DEV_SDD:redefine 的执行辅助 CLI。
   读取目标项目 docs/CONTEXT.md 的规划输入，重建 docs/plan.json，
-  并按固定顺序重新生成 docs/PLAN.md 与 docs/TODO.md。
+  并按固定顺序重新生成 docs/PLAN.md 与 docs/sub_docs/*。
 
 用法:
   python3 .claude/tools/redefine/run.py [project-name-or-path] [--json] [--dry-run]
@@ -150,6 +150,8 @@ def parse_modules(content: str) -> list[dict[str, Any]]:
                 break
         modules.append({
             "name": name,
+            "spec_path": f"modules/{group}/{name}/SPEC.md" if group else f"modules/{name}/SPEC.md",
+            "impl_path": f"modules/{group}/{name}" if group else f"modules/{name}",
             "path": f"modules/{group}/{name}" if group else f"modules/{name}",
             "deps": parse_deps(fields.get("依赖", "无")),
         })
@@ -172,6 +174,9 @@ def build_batches(modules: list[dict[str, Any]]) -> list[dict[str, Any]]:
         for module in ready:
             batch_modules.append({
                 "name": module["name"],
+                "spec_path": module.get("spec_path") or f"modules/{module['name']}/SPEC.md",
+                "impl_path": module.get("impl_path") or f"modules/{module['name']}",
+                "path": module.get("impl_path") or module.get("path") or f"modules/{module['name']}",
                 "complexity": "M",
                 "risk": "" if set(module.get("deps", [])) <= completed else "依赖关系待整理",
                 "deps": module.get("deps", []),
@@ -188,6 +193,98 @@ def build_batches(modules: list[dict[str, Any]]) -> list[dict[str, Any]]:
         remaining = [module for module in remaining if module not in ready]
         batch_no += 1
     return batches
+
+
+def slugify_segment(value: str, fallback: str = "item") -> str:
+    slug = re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-")
+    return slug or fallback
+
+
+def attach_sub_doc_index(plan: dict[str, Any]) -> None:
+    tasks: list[dict[str, str]] = []
+    for batch in plan.get("batches", []):
+        for module in batch.get("modules", []):
+            module_name = str(module.get("name") or "module")
+            task_id = str(module.get("id") or "")
+            if not task_id:
+                continue
+            module_slug = slugify_segment(module_name, "module")
+            sub_doc_path = f"docs/sub_docs/feature/modules/{module_slug}/{task_id}.md"
+            module["sub_doc_path"] = sub_doc_path
+            tasks.append({
+                "id": task_id,
+                "type": "feature",
+                "module": module_name,
+                "path": sub_doc_path,
+            })
+    plan["doc_index"] = {
+        "root": "docs/sub_docs",
+        "tasks": tasks,
+    }
+
+
+def render_sub_doc(project_name: str, module: dict[str, Any], created: str) -> str:
+    task_id = str(module.get("id") or "")
+    module_name = str(module.get("name") or "module")
+    state = str(module.get("state") or "pending")
+    deps = module.get("deps") or []
+    dep_text = ", ".join(str(dep) for dep in deps) if deps else "无"
+    return "\n".join([
+        "---",
+        f"id: {task_id}",
+        "doc_type: feature_task",
+        f"project: {project_name}",
+        f"module: {module_name}",
+        f"state: {state}",
+        f"created_at: {created}",
+        f"updated_at: {created}",
+        "---",
+        "",
+        "## Scope",
+        f"- task_id: `{task_id}`",
+        f"- module: `{module_name}`",
+        f"- deps: {dep_text}",
+        "",
+        "## Analysis",
+        "- 记录该任务在 REDEFINE 后的背景、边界与方案。",
+        "",
+        "## Implementation",
+        "- 记录实现步骤、关键改动与兼容约束。",
+        "",
+        "## Validation",
+        "- 记录验证命令与结果。",
+        "",
+    ])
+
+
+def render_sub_docs_root_readme() -> str:
+    return "\n".join([
+        "# sub_docs",
+        "",
+        "`docs/sub_docs/` 用于存放按任务拆分的实现细节文档。",
+        "`docs/plan.json` 维护全局任务与状态索引，任务细节下沉到本目录。",
+        "",
+        "推荐路径：",
+        "- feature: `docs/sub_docs/feature/modules/<module>/<task_id>.md`",
+        "- bug: `docs/sub_docs/bug/modules/<module>/<task_id>.md`",
+        "",
+    ])
+
+
+def build_sub_doc_files(project_name: str, plan: dict[str, Any]) -> dict[str, str]:
+    created = str(plan.get("created") or date.today().isoformat())
+    files: dict[str, str] = {
+        "docs/sub_docs/README.md": render_sub_docs_root_readme(),
+        "docs/sub_docs/bug/README.md": "# bug\n\n按任务记录 bug 定位、修复与验证细节。\n",
+        "docs/sub_docs/feature/README.md": "# feature\n\n按任务记录 feature 设计、实现与验证细节。\n",
+    }
+    for batch in plan.get("batches", []):
+        for module in batch.get("modules", []):
+            sub_doc_path = str(module.get("sub_doc_path") or "").strip()
+            if not sub_doc_path:
+                continue
+            files[sub_doc_path] = render_sub_doc(project_name, module, created)
+    return files
 
 
 def load_existing_plan(path: Path) -> dict[str, Any] | None:
@@ -224,6 +321,9 @@ def build_redefined_plan(project_name: str, modules: list[dict[str, Any]], exist
                 "completed_at": module.get("completed_at"),
                 "complexity": module.get("complexity"),
                 "risk": module.get("risk"),
+                "spec_path": module.get("spec_path"),
+                "impl_path": module.get("impl_path"),
+                "path": module.get("path"),
             }
 
     for batch in new_plan.get("batches", []):
@@ -242,6 +342,12 @@ def build_redefined_plan(project_name: str, modules: list[dict[str, Any]], exist
                 module["complexity"] = preserved["complexity"]
             if preserved.get("risk") is not None:
                 module["risk"] = preserved["risk"]
+            if preserved.get("spec_path"):
+                module["spec_path"] = preserved["spec_path"]
+            if preserved.get("impl_path"):
+                module["impl_path"] = preserved["impl_path"]
+            if preserved.get("path"):
+                module["path"] = preserved["path"]
     return new_plan
 
 
@@ -267,6 +373,8 @@ def render_plan_markdown(plan: dict[str, Any]) -> str:
                 f"{status_icon.get(module.get('state', 'pending'), '- [ ]')} **{module.get('name', '')}** "
                 f"— 估算: {module.get('complexity', 'M')}{dep_suffix}"
             )
+            if module.get("sub_doc_path"):
+                lines.append(f"   - 子文档: `{module['sub_doc_path']}`")
         lines.append("")
 
     all_modules = [module for batch in plan.get("batches", []) for module in batch.get("modules", [])]
@@ -395,12 +503,14 @@ def run(target_arg: str | None, dry_run: bool, alias: str | None) -> dict[str, A
     existing_plan = load_existing_plan(existing_plan_path)
     new_plan = build_redefined_plan(project_name, modules, existing_plan)
     workflow_cli_common.ensure_plan_stable_ids(new_plan)
+    attach_sub_doc_index(new_plan)
+    sub_doc_files = build_sub_doc_files(project_name, new_plan)
 
     file_payloads = [
         ("docs/plan.json", json.dumps(new_plan, ensure_ascii=False, indent=2) + "\n"),
         ("docs/PLAN.md", render_plan_markdown(new_plan)),
-        ("docs/TODO.md", render_todo(project_name, new_plan)),
     ]
+    file_payloads.extend(sorted(sub_doc_files.items(), key=lambda item: item[0]))
     writes = analyze_writes(target_root, file_payloads)
     changes = calc_changes(existing_plan, new_plan)
 
@@ -426,7 +536,7 @@ def run(target_arg: str | None, dry_run: bool, alias: str | None) -> dict[str, A
             "propagation": [
                 "update:docs/plan.json",
                 "regenerate:docs/PLAN.md",
-                "regenerate:docs/TODO.md",
+                "regenerate:docs/sub_docs/*",
             ],
             "writes": writes,
             "changes": changes,
@@ -441,7 +551,7 @@ def main() -> None:
         epilog="""
 用途:
   基于项目 docs/CONTEXT.md 重定义规划，更新 docs/plan.json，
-  并按固定顺序重建 docs/PLAN.md 与 docs/TODO.md。
+  并按固定顺序重建 docs/PLAN.md 与 docs/sub_docs/*。
 
 示例:
   python3 .claude/tools/redefine/run.py structured-light-stereo --json --dry-run

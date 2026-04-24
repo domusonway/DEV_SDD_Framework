@@ -7,7 +7,7 @@ Layer 1: workflow drift regression guards
   固化历史审计结论，防止以下回归漂移：
   - 根文档重新出现未解析占位符（{{ / }}）
   - root docs/PLAN.md 退回 markdown-first 叙述，弱化 plan.json 权威性
-  - UPDATE_TODO 在本地托管区冲突时未确认就覆盖
+  - UPDATE_TODO 误写 docs/TODO.md（该文档已废弃）
   - workflow helper 共享契约测试从 Layer 1 注册中漂移
 """
 
@@ -84,7 +84,7 @@ def test_root_plan_doc_keeps_plan_json_as_authoritative_source_of_truth():
         assert fragment in content, f"docs/PLAN.md 缺少关键防漂移语义: {fragment}"
 
 
-def test_update_todo_requires_confirmation_before_overwriting_local_managed_edit():
+def test_update_todo_no_longer_writes_docs_todo():
     project_root = clone_fixture("conflict-project")
     try:
         todo_path = project_root / "docs/TODO.md"
@@ -93,29 +93,15 @@ def test_update_todo_requires_confirmation_before_overwriting_local_managed_edit
         dry_run = run_update_todo(project_root, "--ids", "T-003", "--json", "--dry-run")
         assert dry_run.returncode == 0, f"conflict dry-run 失败: {dry_run.stderr}"
         preview = parse_json_output(dry_run, "update-todo drift guard dry-run")
-        assert preview["status"] == "warning", "冲突场景 dry-run 应返回 warning"
+        assert preview["status"] == "ok", "UPDATE_TODO 已降级为 stable-ID 维护，不应再走冲突确认"
+        assert (preview.get("data") or {}).get("deprecated") is True
+        writes = {item["path"]: item["action"] for item in (preview.get("data") or {}).get("writes", [])}
+        assert set(writes.keys()) == {"docs/plan.json"}, f"UPDATE_TODO 不应再写 docs/TODO.md: {writes}"
 
-        confirmation = (preview.get("data") or {}).get("confirmation") or {}
-        assert confirmation.get("required") is True, "冲突场景必须要求确认"
-        token = confirmation.get("token")
-        assert token, "冲突场景必须返回确认 token"
-
-        blocked = run_update_todo(project_root, "--ids", "T-003", "--json")
-        blocked_payload = parse_json_output(blocked, "update-todo drift guard blocked")
-        assert blocked_payload["status"] == "warning", "未确认时应阻止覆盖"
-        assert todo_path.read_text(encoding="utf-8") == original, "未确认时 TODO 内容必须保持不变"
-
-        wrong_token = run_update_todo(project_root, "--ids", "T-003", "--json", "--confirm-overwrite", "deadbeef0000")
-        wrong_payload = parse_json_output(wrong_token, "update-todo drift guard wrong token")
-        assert wrong_payload["status"] == "warning", "错误 token 不应允许覆盖"
-        assert todo_path.read_text(encoding="utf-8") == original, "错误 token 下 TODO 不应被覆盖"
-
-        confirmed = run_update_todo(project_root, "--ids", "T-003", "--json", "--confirm-overwrite", token)
-        confirmed_payload = parse_json_output(confirmed, "update-todo drift guard confirmed")
-        assert confirmed_payload["status"] == "ok", "确认 token 正确后应允许覆盖"
-        assert "- [x] module_gamma <!-- DEV_SDD:TASK:id=T-003;name=module_gamma;state=completed -->" in todo_path.read_text(
-            encoding="utf-8"
-        )
+        actual = run_update_todo(project_root, "--ids", "T-003", "--json")
+        actual_payload = parse_json_output(actual, "update-todo drift guard actual")
+        assert actual_payload["status"] == "ok"
+        assert todo_path.read_text(encoding="utf-8") == original, "UPDATE_TODO 实际执行也不应改写 docs/TODO.md"
     finally:
         shutil.rmtree(project_root.parent, ignore_errors=True)
 
@@ -137,7 +123,7 @@ if __name__ == "__main__":
     tests = [
         test_root_docs_do_not_contain_unresolved_placeholders,
         test_root_plan_doc_keeps_plan_json_as_authoritative_source_of_truth,
-        test_update_todo_requires_confirmation_before_overwriting_local_managed_edit,
+        test_update_todo_no_longer_writes_docs_todo,
         test_workflow_contract_coverage_is_registered_and_asserts_shared_envelope_rules,
     ]
     failed = 0

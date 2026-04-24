@@ -73,25 +73,6 @@ def _write_plan_json(project_root: Path, modules: list[dict[str, str]]):
     )
 
 
-def _write_managed_todo(project_root: Path, lines: list[str]):
-    todo = [
-        f"# {project_root.name} · 任务跟踪",
-        "",
-        "> ⚠️ 执行状态以 `docs/plan.json` 为准；此文件仅记录项目级备注、审计和人工跟进。",
-        "",
-        "<!-- DEV_SDD:MANAGED:BEGIN -->",
-        *lines,
-        "<!-- DEV_SDD:MANAGED:END -->",
-        "",
-        "<!-- DEV_SDD:USER_NOTES:BEGIN -->",
-        "## 用户备注",
-        "- fixture notes",
-        "<!-- DEV_SDD:USER_NOTES:END -->",
-        "",
-    ]
-    (project_root / "docs" / "TODO.md").write_text("\n".join(todo), encoding="utf-8")
-
-
 def _mk_external_project(name: str):
     p = Path(tempfile.mkdtemp(prefix=f"{name}_"))
     (p / "docs").mkdir(parents=True, exist_ok=True)
@@ -126,7 +107,18 @@ def test_json_output_schema_on_active_project():
 def test_no_arg_uses_active_project_from_framework_context():
     res = run_tool("--json")
     data = parse_json_output(res, "start-work active project")
-    assert data["data"].get("project") == "structured-light-stereo", "无参数时应使用当前激活项目"
+    expected = ""
+    for candidate in [FRAMEWORK_ROOT / "AGENTS.md", FRAMEWORK_ROOT / "CLAUDE.md"]:
+        if not candidate.exists():
+            continue
+        for line in candidate.read_text(encoding="utf-8").splitlines():
+            if line.strip().startswith("PROJECT:"):
+                expected = line.split(":", 1)[1].strip()
+                break
+        if expected:
+            break
+    assert expected, "测试前提失败：未在 AGENTS.md/CLAUDE.md 中检测到 PROJECT"
+    assert data["data"].get("project") == expected, "无参数时应使用当前激活项目"
 
 
 def test_explicit_project_override_and_missing_data_degrade_gracefully():
@@ -204,75 +196,8 @@ def test_session_state_prefers_handoff_then_in_progress_session():
         shutil.rmtree(p, ignore_errors=True)
 
 
-def test_reconciliation_aligned_todo_reports_no_warnings_and_plan_authoritative_next_action():
-    p = _mk_project("start_work_reconcile_aligned")
-    try:
-        project = p.name
-        _write_plan_json(p, [
-            {"id": "T-001", "name": "module_alpha", "state": "pending"},
-            {"id": "T-002", "name": "module_beta", "state": "in_progress"},
-        ])
-        _write_managed_todo(p, [
-            "- [ ] module_alpha <!-- DEV_SDD:TASK:id=T-001;name=module_alpha;state=pending -->",
-            "- [>] module_beta <!-- DEV_SDD:TASK:id=T-002;name=module_beta;state=in_progress -->",
-        ])
-
-        res = run_tool(project, "--json")
-        data = parse_json_output(res, "start-work reconciliation aligned")
-
-        assert data["data"].get("next_action_source") == "plan.json", "next_action 来源应标注为 plan.json"
-        assert "module_alpha" in data["data"].get("next_action", ""), "next_action 必须来自 plan 顺序"
-
-        rec = data["data"].get("reconciliation") or {}
-        assert rec.get("status") == "aligned"
-        assert rec.get("matched_ids") == ["T-001", "T-002"]
-        assert rec.get("orphan_ids") == []
-        assert rec.get("conflict_ids") == []
-        assert rec.get("warnings") == []
-    finally:
-        shutil.rmtree(p, ignore_errors=True)
-
-
-def test_reconciliation_mismatch_reports_deterministic_warnings_without_overriding_plan_next_action():
-    p = _mk_project("start_work_reconcile_mismatch")
-    try:
-        project = p.name
-        _write_plan_json(p, [
-            {"id": "T-001", "name": "module_alpha", "state": "pending"},
-            {"id": "T-002", "name": "module_beta", "state": "completed"},
-            {"id": "T-003", "name": "module_gamma", "state": "pending"},
-        ])
-        _write_managed_todo(p, [
-            "- [x] module_alpha_renamed <!-- DEV_SDD:TASK:id=T-001;name=module_alpha_renamed;state=completed -->",
-            "- [x] module_beta <!-- DEV_SDD:TASK:id=T-002;name=module_beta;state=completed -->",
-            "- [x] module_beta_duplicate <!-- DEV_SDD:TASK:id=T-002;name=module_beta_duplicate;state=completed -->",
-            "- [ ] orphan_task <!-- DEV_SDD:TASK:id=T-404;name=orphan_task;state=pending -->",
-        ])
-
-        res = run_tool(project, "--json")
-        data = parse_json_output(res, "start-work reconciliation mismatch")
-        rec = data["data"].get("reconciliation") or {}
-
-        assert data["data"].get("next_action_source") == "plan.json"
-        assert "module_alpha" in data["data"].get("next_action", ""), "TODO 冲突时也应以 plan next_action 为准"
-
-        warnings = rec.get("warnings") or []
-        reasons = [item.get("reason") for item in warnings]
-        assert "duplicate_todo_id" in reasons
-        assert "orphan_todo_id" in reasons
-        assert "missing_todo_id" in reasons
-        assert "state_mismatch" in reasons
-        assert "name_mismatch" in reasons
-
-        assert "T-404" in (rec.get("orphan_ids") or [])
-        assert "T-001" in (rec.get("conflict_ids") or [])
-        assert rec.get("status") == "mismatch"
-    finally:
-        shutil.rmtree(p, ignore_errors=True)
-
-
-def test_reconciliation_without_todo_file_reports_warning_but_uses_plan_next_action():
-    p = _mk_project("start_work_reconcile_no_todo")
+def test_reconciliation_reports_todo_deprecated_and_keeps_plan_next_action():
+    p = _mk_project("start_work_reconcile_deprecated")
     try:
         project = p.name
         _write_plan_json(p, [
@@ -280,14 +205,14 @@ def test_reconciliation_without_todo_file_reports_warning_but_uses_plan_next_act
         ])
 
         res = run_tool(project, "--json")
-        data = parse_json_output(res, "start-work reconciliation no todo")
+        data = parse_json_output(res, "start-work reconciliation deprecated")
         rec = data["data"].get("reconciliation") or {}
 
         assert data["data"].get("next_action_source") == "plan.json"
         assert "module_alpha" in data["data"].get("next_action", "")
-        assert rec.get("status") == "todo_missing"
+        assert rec.get("status") == "not_applicable"
         warnings = rec.get("warnings") or []
-        assert any(item.get("reason") == "todo_missing" for item in warnings)
+        assert any(item.get("reason") == "docs_todo_deprecated" for item in warnings)
     finally:
         shutil.rmtree(p, ignore_errors=True)
 
@@ -298,10 +223,6 @@ def test_absolute_external_project_path_returns_json_without_crashing():
         _write_plan_json(p, [
             {"id": "T-001", "name": "module_alpha", "state": "pending"},
             {"id": "T-002", "name": "module_beta", "state": "in_progress"},
-        ])
-        _write_managed_todo(p, [
-            "- [ ] module_alpha <!-- DEV_SDD:TASK:id=T-001;name=module_alpha;state=pending -->",
-            "- [>] module_beta <!-- DEV_SDD:TASK:id=T-002;name=module_beta;state=in_progress -->",
         ])
         (p / "memory" / "sessions" / "2099-01-01_00-01.md").write_text(
             "---\nstatus: in-progress\ntask: external-task\n---\n\n下次继续: 继续 external-task\n",
@@ -330,9 +251,7 @@ if __name__ == "__main__":
         test_explicit_project_override_and_missing_data_degrade_gracefully,
         test_plan_priority_prefers_plan_json_then_markdown_fallbacks,
         test_session_state_prefers_handoff_then_in_progress_session,
-        test_reconciliation_aligned_todo_reports_no_warnings_and_plan_authoritative_next_action,
-        test_reconciliation_mismatch_reports_deterministic_warnings_without_overriding_plan_next_action,
-        test_reconciliation_without_todo_file_reports_warning_but_uses_plan_next_action,
+        test_reconciliation_reports_todo_deprecated_and_keeps_plan_next_action,
         test_absolute_external_project_path_returns_json_without_crashing,
     ]
     failed = 0

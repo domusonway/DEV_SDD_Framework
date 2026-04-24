@@ -45,7 +45,7 @@ python3 -m pytest tests/test_<module>.py -v 2>&1 | head -60
 每次只改一处。改多处 = 无法确定哪个修复有效。
 
 ### Step 5: 若 5 次后仍无法修复
-1. 在 TODO.md 记录：症状、已尝试方案、假设
+1. 在当前 session 快照中记录：症状、已尝试方案、假设
 2. 回退到最后一个 GREEN 状态
 3. 重新审查 SPEC，考虑是否 SPEC 本身有误
 

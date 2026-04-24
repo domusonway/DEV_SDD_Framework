@@ -316,139 +316,13 @@ def check_environment_status(project_root: Path | None) -> tuple[str, str]:
 
 
 def reconcile_todo(project_root: Path, plan: PlanResult) -> dict[str, Any]:
-    base = {
-        "status": "skipped",
+    return {
+        "status": "not_applicable",
         "matched_ids": [],
         "orphan_ids": [],
         "conflict_ids": [],
         "missing_ids": [],
-        "warnings": [],
-    }
-
-    if plan.source != "plan.json":
-        base["warnings"] = [{"reason": "reconciliation_requires_plan_json", "source": plan.source}]
-        return base
-
-    plan_by_id: dict[str, dict[str, str]] = {}
-    warnings: list[dict[str, Any]] = []
-    for node in plan.nodes:
-        task_id = str(node.get("id") or "").strip()
-        if not task_id:
-            continue
-        if task_id in plan_by_id:
-            warnings.append({"reason": "duplicate_plan_id", "id": task_id})
-            continue
-        plan_by_id[task_id] = {
-            "name": str(node.get("name") or ""),
-            "state": str(node.get("state") or "pending"),
-        }
-
-    todo_path = project_root / "docs" / "TODO.md"
-    if not todo_path.exists():
-        missing_ids = sorted(plan_by_id.keys())
-        warnings.append({"reason": "todo_missing", "path": "docs/TODO.md"})
-        return {
-            "status": "todo_missing",
-            "matched_ids": [],
-            "orphan_ids": [],
-            "conflict_ids": [],
-            "missing_ids": missing_ids,
-            "warnings": _sort_warnings(warnings),
-        }
-
-    content = safe_read_text(todo_path)
-    mb = content.find(MANAGED_BEGIN)
-    me = content.find(MANAGED_END)
-    if mb < 0 or me < 0 or mb >= me:
-        warnings.extend([
-            {"reason": "managed_todo_block_missing", "path": "docs/TODO.md"},
-            *({"reason": "missing_todo_id", "id": task_id} for task_id in sorted(plan_by_id.keys())),
-        ])
-        return {
-            "status": "mismatch",
-            "matched_ids": [],
-            "orphan_ids": [],
-            "conflict_ids": [],
-            "missing_ids": sorted(plan_by_id.keys()),
-            "warnings": _sort_warnings(warnings),
-        }
-
-    managed_start = content.find("\n", mb)
-    if managed_start < 0:
-        managed_start = me
-    else:
-        managed_start += 1
-    managed_lines = content[managed_start:me].splitlines()
-
-    parsed_items: dict[str, dict[str, str]] = {}
-    duplicate_ids: set[str] = set()
-    for idx, line in enumerate(managed_lines, start=1):
-        stripped = line.strip()
-        if not stripped:
-            continue
-        m = TASK_LINE_RE.match(line)
-        if not m:
-            continue
-        _, display_name, task_id, meta_name, meta_state = m.groups()
-        if task_id in parsed_items:
-            duplicate_ids.add(task_id)
-            warnings.append({"reason": "duplicate_todo_id", "id": task_id, "line": idx})
-            continue
-        parsed_items[task_id] = {
-            "display_name": display_name.strip(),
-            "meta_name": meta_name.strip(),
-            "meta_state": meta_state.strip(),
-        }
-
-    matched_ids: list[str] = []
-    orphan_ids: list[str] = []
-    conflict_ids: list[str] = []
-    missing_ids: list[str] = []
-
-    for task_id, item in parsed_items.items():
-        plan_node = plan_by_id.get(task_id)
-        if plan_node is None:
-            orphan_ids.append(task_id)
-            warnings.append({"reason": "orphan_todo_id", "id": task_id})
-            continue
-
-        has_conflict = False
-        if item["meta_state"] != plan_node["state"]:
-            warnings.append({
-                "reason": "state_mismatch",
-                "id": task_id,
-                "todo": item["meta_state"],
-                "plan": plan_node["state"],
-            })
-            has_conflict = True
-        if item["meta_name"] != plan_node["name"]:
-            warnings.append({
-                "reason": "name_mismatch",
-                "id": task_id,
-                "todo": item["meta_name"],
-                "plan": plan_node["name"],
-            })
-            has_conflict = True
-
-        if has_conflict:
-            conflict_ids.append(task_id)
-        else:
-            matched_ids.append(task_id)
-
-    for task_id in sorted(plan_by_id.keys()):
-        if task_id not in parsed_items:
-            missing_ids.append(task_id)
-            warnings.append({"reason": "missing_todo_id", "id": task_id})
-
-    conflict_ids.extend(sorted(duplicate_ids))
-    status = "aligned" if not warnings else "mismatch"
-    return {
-        "status": status,
-        "matched_ids": sorted(set(matched_ids)),
-        "orphan_ids": sorted(set(orphan_ids)),
-        "conflict_ids": sorted(set(conflict_ids)),
-        "missing_ids": sorted(set(missing_ids)),
-        "warnings": _sort_warnings(warnings),
+        "warnings": [{"reason": "docs_todo_deprecated", "detail": "docs/TODO.md 已废弃，启动阶段不再执行 TODO↔plan 对账"}],
     }
 
 
@@ -464,7 +338,7 @@ def parse_handoff(handoff_path: Path) -> dict[str, Any] | None:
 def parse_latest_session(session_dir: Path) -> dict[str, Any] | None:
     if not session_dir.exists():
         return None
-    files = sorted(session_dir.glob("*.md"), reverse=True)
+    files = sorted(session_dir.glob("*.md"), key=lambda p: p.stat().st_mtime, reverse=True)
     if not files:
         return None
     latest = files[0]
@@ -593,7 +467,7 @@ def run(project_arg: str | None) -> dict[str, Any]:
     session, next_action, next_action_source = detect_session(project_root, plan.next_action, plan.source)
 
     status = STATUS_OK
-    if mode.get("detected") == "unknown" or plan.source == "none" or reconciliation.get("status") in {"mismatch", "todo_missing"}:
+    if mode.get("detected") == "unknown" or plan.source == "none":
         status = STATUS_WARNING
 
     # 环境状态检查

@@ -32,8 +32,8 @@
 
 ## 生成/维护的目标
 - `docs/plan.json` ← 执行状态真相源
+- `docs/sub_docs/` ← 任务实现细节文档（按 task_id 索引）
 - `docs/PLAN.md` ← `plan.json` 的只读派生视图
-- `docs/TODO.md` ← 项目级备注/审计记录
 - `CLAUDE.md` ← 项目入口与加载地图
 - `AGENTS.md` ← 指向项目 `CLAUDE.md`
 - `README.md` ← 项目简介与初始化约定
@@ -49,11 +49,13 @@
    - 技术栈摘要
    - 模块划分与依赖
 3. 生成结构化 `docs/plan.json`：
-    - `plan.json` 作为 INIT 的核心输出与后续命令真相源
-    - 模块信息来自项目 `docs/CONTEXT.md`，而不是 root `docs/*`
-    - `plan.json` 中模块条目必须显式区分 `spec_path` 与 `impl_path`
+     - `plan.json` 作为 INIT 的核心输出与后续命令真相源
+     - 模块信息来自项目 `docs/CONTEXT.md`，而不是 root `docs/*`
+     - `plan.json` 中模块条目必须显式区分 `spec_path` 与 `impl_path`
+     - `plan.json` 中每个任务条目维护 `sub_doc_path`，并在 `doc_index` 记录全局索引
 4. 生成派生文档：
-    - `docs/PLAN.md` 与 `docs/TODO.md`
+    - `docs/PLAN.md`
+    - `docs/sub_docs/README.md` 与任务级子文档骨架
     - `CLAUDE.md`、`AGENTS.md`、`README.md`
     - `env/README.md`、`env/requirements.txt`、`env/environment.yml`、`env/start.sh`
 5. 检查现有文件冲突：
@@ -107,5 +109,5 @@
 - `docs/plan.json` 始终是执行状态真相源；生成的 markdown 视图不能反过来覆盖它。
 - `--dry-run` 只返回即将写入/覆盖的计划，不实际修改文件，适合测试和人工确认。
 - 若缺少 `docs/CONTEXT.md`，helper 返回 `error`，因为 INIT 无法安全推导项目引导文档。
-- INIT 只处理 bootstrap/overwrite-confirmation 行为；后续计划重定义、TODO 协调、开始工作、修复流程分别由 `REDEFINE`、`UPDATE_TODO`、`START_WORK`、`FIX` 负责。
+- INIT 只处理 bootstrap/overwrite-confirmation 行为；后续计划重定义、开始工作、修复流程分别由 `REDEFINE`、`START_WORK`、`FIX` 负责。
 - 运行环境模板默认仅考虑 Ubuntu + conda：`env/start.sh` 应能在 Ubuntu shell 中创建/激活 conda 环境并进入项目目录。

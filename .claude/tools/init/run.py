@@ -311,6 +311,99 @@ def build_plan(project_name: str, modules: list[dict[str, Any]]) -> dict[str, An
     }
 
 
+def slugify_segment(value: str, fallback: str = "item") -> str:
+    slug = re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-")
+    return slug or fallback
+
+
+def attach_sub_doc_index(plan: dict[str, Any]) -> None:
+    tasks: list[dict[str, str]] = []
+    for batch in plan.get("batches", []):
+        for module in batch.get("modules", []):
+            module_name = str(module.get("name") or "module")
+            task_id = str(module.get("id") or "")
+            if not task_id:
+                continue
+            module_slug = slugify_segment(module_name, "module")
+            sub_doc_path = f"docs/sub_docs/feature/modules/{module_slug}/{task_id}.md"
+            module["sub_doc_path"] = sub_doc_path
+            tasks.append({
+                "id": task_id,
+                "type": "feature",
+                "module": module_name,
+                "path": sub_doc_path,
+            })
+
+    plan["doc_index"] = {
+        "root": "docs/sub_docs",
+        "tasks": tasks,
+    }
+
+
+def render_sub_doc(project_name: str, module: dict[str, Any], created: str) -> str:
+    task_id = str(module.get("id") or "")
+    module_name = str(module.get("name") or "module")
+    state = str(module.get("state") or "pending")
+    deps = module.get("deps") or []
+    dep_text = ", ".join(str(dep) for dep in deps) if deps else "无"
+    return "\n".join([
+        "---",
+        f"id: {task_id}",
+        "doc_type: feature_task",
+        f"project: {project_name}",
+        f"module: {module_name}",
+        f"state: {state}",
+        f"created_at: {created}",
+        f"updated_at: {created}",
+        "---",
+        "",
+        "## Scope",
+        f"- task_id: `{task_id}`",
+        f"- module: `{module_name}`",
+        f"- deps: {dep_text}",
+        "",
+        "## Analysis",
+        "- 记录该任务的设计分析、边界与取舍。",
+        "",
+        "## Implementation",
+        "- 记录实现要点、关键改动与接口映射。",
+        "",
+        "## Validation",
+        "- 记录测试用例、验证命令与结果。",
+        "",
+    ])
+
+
+def render_sub_docs_root_readme() -> str:
+    return "\n".join([
+        "# sub_docs",
+        "",
+        "`docs/sub_docs/` 用于存放按任务拆分的实现细节文档。",
+        "`docs/plan.json` 维护全局任务与状态索引，任务细节下沉到本目录。",
+        "",
+        "推荐路径：",
+        "- feature: `docs/sub_docs/feature/modules/<module>/<task_id>.md`",
+        "- bug: `docs/sub_docs/bug/modules/<module>/<task_id>.md`",
+        "",
+    ])
+
+
+def build_sub_doc_files(project_name: str, plan: dict[str, Any]) -> dict[str, str]:
+    created = str(plan.get("created") or date.today().isoformat())
+    files: dict[str, str] = {
+        "docs/sub_docs/README.md": render_sub_docs_root_readme(),
+        "docs/sub_docs/bug/README.md": "# bug\n\n按任务记录 bug 定位、修复与验证细节。\n",
+        "docs/sub_docs/feature/README.md": "# feature\n\n按任务记录 feature 设计、实现与验证细节。\n",
+    }
+    for batch in plan.get("batches", []):
+        for module in batch.get("modules", []):
+            sub_doc_path = str(module.get("sub_doc_path") or "").strip()
+            if not sub_doc_path:
+                continue
+            files[sub_doc_path] = render_sub_doc(project_name, module, created)
+    return files
+
+
 def render_plan_markdown(plan: dict[str, Any]) -> str:
     status_icon = {"pending": "- [ ]", "completed": "- [x]", "skipped": "- [~]", "in_progress": "- [>]"}
     lines = [
@@ -330,6 +423,8 @@ def render_plan_markdown(plan: dict[str, Any]) -> str:
             deps = module.get("deps", [])
             dep_suffix = f" — 依赖: {', '.join(deps)}" if deps else ""
             lines.append(f"{status_icon.get(module.get('state', 'pending'), '- [ ]')} **{module['name']}** — 估算: {module.get('complexity', 'M')}{dep_suffix}")
+            if module.get("sub_doc_path"):
+                lines.append(f"   - 子文档: `{module['sub_doc_path']}`")
         lines.append("")
 
     all_modules = [module for batch in plan.get("batches", []) for module in batch.get("modules", [])]
@@ -444,17 +539,17 @@ def render_claude(project_name: str, goal: str, background: str, modules: list[d
         "| 项目背景 | `docs/CONTEXT.md` |",
         "| 执行计划（权威状态） | `docs/plan.json` |",
         "| 执行计划（只读视图） | `docs/PLAN.md` |",
-        "| 当前执行备注 | `docs/TODO.md` |",
+        "| 任务子文档索引 | `docs/sub_docs/` |",
         "| 项目记忆 | `memory/INDEX.md` |",
         "| 上次会话 | `memory/sessions/` 最新文件 |",
         "",
-        "> 项目执行状态以 `docs/plan.json` 为准；`docs/PLAN.md` 是生成的只读视图，`docs/TODO.md` 仅记录项目级执行备注、临时跟进和审计信息。",
+        "> 项目执行状态以 `docs/plan.json` 为准；`docs/sub_docs/` 承载任务实现细节；`docs/PLAN.md` 是生成的只读视图。",
         "",
         "---",
         "",
         "## 验收标准",
         "- `docs/plan.json` 保持为执行真相源",
-        "- `docs/PLAN.md` / `docs/TODO.md` 仅作为派生视图或补充记录",
+        "- `docs/PLAN.md` 仅作为 plan.json 的派生只读视图",
         "- 后续模块开发遵循 SPEC → tests → implementation 的 TDD 流程",
         "",
     ])
@@ -474,7 +569,8 @@ def render_readme(project_name: str, goal: str, background: str, modules: list[d
         "## 初始化约定",
         "- `docs/CONTEXT.md` 是 INIT 的输入来源",
         "- `docs/plan.json` 是执行状态真相源",
-        "- `docs/PLAN.md` 与 `docs/TODO.md` 为派生/补充文档",
+        "- `docs/sub_docs/` 承载任务实现与分析文档",
+        "- `docs/PLAN.md` 为派生只读文档",
         "- `modules/` 默认承载规格文档；实现代码路径由 `plan.json.impl_path` 显式声明",
         "",
         "## 模块概览",
@@ -650,19 +746,20 @@ def build_init_spec(target_root: Path) -> InitSpec:
     modules = parse_modules(content)
     plan = build_plan(project_name, modules)
     workflow_cli_common.ensure_plan_stable_ids(plan)
-    managed_todo = workflow_cli_common.render_managed_todo(project_name, workflow_cli_common.plan_tasks(plan))
+    attach_sub_doc_index(plan)
+    sub_doc_files = build_sub_doc_files(project_name, plan)
     files = {
         "CLAUDE.md": render_claude(project_name, goal, background, modules, tech_stack),
         "AGENTS.md": "./CLAUDE.md\n",
         "README.md": render_readme(project_name, goal, background, modules),
         "docs/plan.json": json.dumps(plan, ensure_ascii=False, indent=2) + "\n",
         "docs/PLAN.md": render_plan_markdown(plan),
-        "docs/TODO.md": managed_todo,
         "env/README.md": render_env_readme(project_name, python_version, env_name),
         "env/requirements.txt": render_env_requirements(),
         "env/environment.yml": render_env_environment_yml(env_name, python_version),
         "env/start.sh": render_env_start_script(env_name),
     }
+    files.update(sub_doc_files)
     return InitSpec(
         project_name=project_name,
         goal=goal,

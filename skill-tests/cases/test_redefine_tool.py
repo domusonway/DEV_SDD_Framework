@@ -88,8 +88,8 @@ def test_propagates_plan_updates_and_regenerates_derived_docs():
         assert data.get("input_source") == "docs/CONTEXT.md", "上游输入应来自项目 CONTEXT"
         writes = data.get("writes", [])
         write_paths = [item["path"] for item in writes]
-        assert write_paths[:3] == ["docs/plan.json", "docs/PLAN.md", "docs/TODO.md"], (
-            f"传播顺序应先 plan.json 后派生文档: {write_paths}"
+        assert write_paths[:2] == ["docs/plan.json", "docs/PLAN.md"], (
+            f"传播顺序应先 plan.json 后 PLAN.md: {write_paths}"
         )
         changes = data.get("changes", {})
         assert "redefine_flow" in changes.get("added_modules", []), "应识别新增模块"
@@ -111,9 +111,7 @@ def test_propagates_plan_updates_and_regenerates_derived_docs():
         assert states["redefine_flow"] == "pending", "新增模块应默认为 pending"
 
         plan_md = (project_root / "docs/PLAN.md").read_text(encoding="utf-8")
-        todo_md = (project_root / "docs/TODO.md").read_text(encoding="utf-8")
         assert "redefine_flow" in plan_md and "legacy_sync" not in plan_md, "PLAN.md 应由新 plan.json 派生"
-        assert "redefine_flow" in todo_md, "TODO.md 应按重定义后的计划刷新"
     finally:
         shutil.rmtree(project_root.parent, ignore_errors=True)
 
@@ -131,7 +129,7 @@ def test_legacy_alias_redefind_routes_to_same_semantics():
         assert "REDEFIND" in data["message"], "返回消息应包含 alias 兼容提示"
 
         writes = [item["path"] for item in data["data"].get("writes", [])]
-        assert writes[:3] == ["docs/plan.json", "docs/PLAN.md", "docs/TODO.md"]
+        assert writes[:2] == ["docs/plan.json", "docs/PLAN.md"]
     finally:
         shutil.rmtree(project_root.parent, ignore_errors=True)
 

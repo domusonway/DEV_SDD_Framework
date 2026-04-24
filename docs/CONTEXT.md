@@ -25,7 +25,8 @@ Examples:
 ### `projects/<PROJECT>/docs/*` = active-project execution docs
 
 When a concrete project is active, its execution-facing documents live under `projects/<PROJECT>/docs/*`.
-That is where project-specific context, generated plan views, TODO tracking, specs, and delivery notes belong.
+That is where project-specific context, generated plan views, task sub-docs, specs, and delivery notes belong.
+Task-level implementation details should be placed in `projects/<PROJECT>/docs/sub_docs/*` and referenced from `projects/<PROJECT>/docs/plan.json`.
 
 The startup protocol in `AGENTS.md` remains authoritative for loading context:
 - first load framework memory and framework rules
@@ -111,7 +112,7 @@ This matches the existing helper/tool pattern already visible in:
 ### Ownership and source of truth
 
 - `START_WORK` is primarily read-oriented. It reports context/session/plan state and follows plan precedence `plan.json` → `PLAN.md` → `IMPLEMENTATION_PLAN.md`.
-- `UPDATE_TODO` may refresh human-readable task views or project-local TODO records, but it must reconcile against `projects/<PROJECT>/docs/plan.json` before claiming execution state.
+- `UPDATE_TODO` is retained as a stable-ID maintenance helper for `projects/<PROJECT>/docs/plan.json`; it does not own project task view documents.
 - `INIT`, `REDEFINE`, and `FIX` must preserve the same ownership boundary: root `docs/*` define framework rules, while project execution artifacts live under `projects/<PROJECT>/docs/*`.
 - No command may treat root `docs/PLAN.md` or root `docs/TODO.md` as the active-project execution source of truth.
 
@@ -120,7 +121,7 @@ This matches the existing helper/tool pattern already visible in:
 - `START_WORK` does not require confirmation for read-only inspection.
 - `INIT` requires confirmation before creating or replacing user-visible project scaffolding when intent, target project, or affected files are not already explicit.
 - `REDEFINE` requires confirmation before changing user-facing scope, specs, or planning semantics.
-- `UPDATE_TODO` requires confirmation when it would rewrite user-facing task wording, resolve ambiguity, or change task state beyond a straightforward user-requested sync.
+- `UPDATE_TODO` can proceed without extra confirmation because it only performs stable-ID maintenance in `plan.json`.
 - `FIX` may proceed without extra confirmation for a clearly requested implementation correction, but must ask first if the fix would redefine scope, change specs/plans, or discard user-authored execution notes.
 
 ### Graceful degradation rules

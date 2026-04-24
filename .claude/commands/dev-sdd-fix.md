@@ -13,7 +13,7 @@ python3 .claude/tools/fix/run.py <issue-json-path> [--json] [--dry-run]
 ## 定位
 - `/DEV_SDD:fix` 是**修复分诊命令**：它负责读取 issue、项目上下文、项目 memory 和可用计划信息，先做 triage，再给出修复选项。
 - 在共享命令契约中，本命令对应逻辑命名 `FIX`。
-- 本命令只输出 triage/option 建议，不直接改业务代码，也不改 `docs/plan.json`、`docs/PLAN.md` 或 `docs/TODO.md`。
+- 本命令只输出 triage/option 建议，不直接改业务代码，也不改 `docs/plan.json`、`docs/PLAN.md` 或 `docs/sub_docs/*`。
 - helper CLI 使用共享 `{status,message,data}` envelope。
 
 ## 必需输入

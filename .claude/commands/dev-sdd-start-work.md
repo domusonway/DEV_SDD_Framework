@@ -43,7 +43,7 @@
    - `status` 仅使用 `ok` / `warning` / `error`
    - `message` 提供人类可读摘要；`data` 承载 `project`、`context_files`、`session`、`mode`、`plan`、`reconciliation`、`next_action`、`next_action_source`
    - helper 内部按优先级读取计划：`plan.json` → `PLAN.md` → `IMPLEMENTATION_PLAN.md`
-   - helper 内部汇总：上下文文件、session/handoff 状态、模式检测、计划进度、TODO↔plan 对账结果、next_action
+   - helper 内部汇总：上下文文件、session/handoff 状态、模式检测、计划进度、next_action
 8. 输出启动摘要：
    - 当前项目
    - Session 状态（RESUME / NEW SESSION）

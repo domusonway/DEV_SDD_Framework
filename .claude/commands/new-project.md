@@ -20,7 +20,7 @@
 6. 保留模板中的项目级执行文档语义：
    - `projects/<project-name>/docs/plan.json` = 项目执行状态源
    - `projects/<project-name>/docs/PLAN.md` = 从 `plan.json` 派生的只读视图
-   - `projects/<project-name>/docs/TODO.md` = 项目级执行备注/审计记录，不覆盖 `plan.json`
+   - `projects/<project-name>/docs/sub_docs/` = 任务级分析/实现/验证文档（按领域分层）
 7. 调用 /project:switch 激活新项目
 8. 输出确认：
     ```

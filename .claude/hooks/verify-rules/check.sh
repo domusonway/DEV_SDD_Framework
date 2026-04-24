@@ -39,20 +39,44 @@ echo "【1】今日 session 记录"
 if [ ! -d "$SESSION_DIR" ]; then
     echo "  ❌ sessions/ 目录不存在，请创建: $SESSION_DIR"
     FAIL=$((FAIL+1))
-elif ls "$SESSION_DIR"/${TODAY}_*.md 2>/dev/null | head -1 | grep -q .; then
-    SESSION_COUNT=$(ls "$SESSION_DIR"/${TODAY}_*.md 2>/dev/null | wc -l | tr -d ' ')
+else
+    SESSION_COUNT=$(python3 - <<PY
+import datetime
+import pathlib
+import re
+
+session_dir = pathlib.Path(r"$SESSION_DIR")
+today = "$TODAY"
+count = 0
+for path in session_dir.glob("*.md"):
+    try:
+        content = path.read_text(encoding="utf-8")
+    except Exception:
+        continue
+    m = re.search(r"^created_at:\s*(.+)$", content, re.MULTILINE)
+    if m and m.group(1).strip().startswith(today):
+        count += 1
+        continue
+    mtime = datetime.datetime.fromtimestamp(path.stat().st_mtime).strftime("%Y-%m-%d")
+    if mtime == today:
+        count += 1
+print(count)
+PY
+)
+    if [ "${SESSION_COUNT:-0}" -gt 0 ]; then
     echo "  ✅ 今日有 $SESSION_COUNT 个 session 文件"
     PASS=$((PASS+1))
-else
+    else
     echo "  ❌ 今日无 session 记录（Rules 可能未生效，或今日未开发）"
     FAIL=$((FAIL+1))
+    fi
 fi
 
 # ── 检查 2：session 是否正常关闭 ─────────────────────────────────────────────
 echo ""
 echo "【2】会话关闭状态"
-if [ -d "$SESSION_DIR" ] && ls "$SESSION_DIR"/${TODAY}_*.md 2>/dev/null | head -1 | grep -q .; then
-    LATEST=$(ls -t "$SESSION_DIR"/${TODAY}_*.md | head -1)
+if [ -d "$SESSION_DIR" ] && ls "$SESSION_DIR"/*.md 2>/dev/null | head -1 | grep -q .; then
+    LATEST=$(ls -t "$SESSION_DIR"/*.md | head -1)
     if grep -q "status: completed" "$LATEST" 2>/dev/null; then
         echo "  ✅ 最新会话已正常关闭（包含 SESSION-END）"
         PASS=$((PASS+1))
@@ -68,12 +92,30 @@ fi
 # ── 检查 3：检查点数量 ────────────────────────────────────────────────────────
 echo ""
 echo "【3】检查点记录"
-if [ -d "$SESSION_DIR" ] && ls "$SESSION_DIR"/${TODAY}_*.md 2>/dev/null | head -1 | grep -q .; then
-    TOTAL_CP=0
-    for f in "$SESSION_DIR"/${TODAY}_*.md; do
-        CP=$(grep -c "\[CHECKPOINT" "$f" 2>/dev/null || echo 0)
-        TOTAL_CP=$((TOTAL_CP + CP))
-    done
+if [ -d "$SESSION_DIR" ] && ls "$SESSION_DIR"/*.md 2>/dev/null | head -1 | grep -q .; then
+    TOTAL_CP=$(python3 - <<PY
+import datetime
+import pathlib
+import re
+
+session_dir = pathlib.Path(r"$SESSION_DIR")
+today = "$TODAY"
+total = 0
+for path in session_dir.glob("*.md"):
+    try:
+        content = path.read_text(encoding="utf-8")
+    except Exception:
+        continue
+    m = re.search(r"^created_at:\s*(.+)$", content, re.MULTILINE)
+    same_day = m and m.group(1).strip().startswith(today)
+    if not same_day:
+        mtime = datetime.datetime.fromtimestamp(path.stat().st_mtime).strftime("%Y-%m-%d")
+        same_day = (mtime == today)
+    if same_day:
+        total += content.count("[CHECKPOINT")
+print(total)
+PY
+)
     if [ "$TOTAL_CP" -gt 0 ]; then
         echo "  ✅ 今日共 $TOTAL_CP 个检查点"
         PASS=$((PASS+1))
@@ -157,7 +199,7 @@ if [ "$FAIL" -gt 0 ]; then
     echo "    参考: docs/PROJECT_RULES.md"
 elif [ "$WARN" -gt 0 ]; then
     echo "  → 有警告项，系统基本运行但存在记录缺失"
-    echo "    建议：在结束工作前主动说"收工"让 Rules 触发 SESSION-END"
+    echo "    建议：在结束工作前主动说'收工'让 Rules 触发 SESSION-END"
 else
     echo "  → 系统运行正常，记录完整 🎉"
 fi

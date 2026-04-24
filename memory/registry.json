@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-08T22:25:55.377704",
+  "generated_at": "2026-04-24T13:46:25.978048",
   "framework_root": "/media/ptn/748095058094CECC/workspace/linguozhu/projects/agent_team/DEV_SDD_Framework",
   "entries": [
     {
@@ -17,7 +17,7 @@
       "version": "",
       "recommended": true,
       "created": "",
-      "last_updated": "2026-03-12"
+      "last_updated": "2026-04-24"
     },
     {
       "id": "context-probe",
@@ -71,7 +71,7 @@
       "version": "",
       "recommended": true,
       "created": "",
-      "last_updated": "2026-03-12"
+      "last_updated": "2026-04-24"
     },
     {
       "id": "memory-update",
@@ -92,7 +92,7 @@
       "version": "",
       "recommended": true,
       "created": "",
-      "last_updated": "2026-04-04"
+      "last_updated": "2026-04-24"
     },
     {
       "id": "observe-verify",
@@ -118,7 +118,7 @@
       "version": "",
       "recommended": true,
       "created": "",
-      "last_updated": "2026-03-21"
+      "last_updated": "2026-04-10"
     },
     {
       "id": "sub-agent-isolation",
@@ -136,7 +136,7 @@
       "version": "",
       "recommended": true,
       "created": "",
-      "last_updated": "2026-03-21"
+      "last_updated": "2026-04-10"
     },
     {
       "id": "tdd-cycle",
@@ -162,7 +162,7 @@
       "version": "",
       "recommended": true,
       "created": "",
-      "last_updated": "2026-03-14"
+      "last_updated": "2026-04-10"
     },
     {
       "id": "validate-output",
@@ -186,7 +186,7 @@
       "version": "",
       "recommended": true,
       "created": "",
-      "last_updated": "2026-03-14"
+      "last_updated": "2026-04-24"
     },
     {
       "id": "context-budget",
@@ -206,7 +206,7 @@
       "version": "",
       "recommended": true,
       "created": "",
-      "last_updated": "2026-03-21"
+      "last_updated": "2026-04-10"
     },
     {
       "id": "hook-observer",
@@ -234,7 +234,7 @@
       "version": "",
       "recommended": true,
       "created": "",
-      "last_updated": "2026-03-30"
+      "last_updated": "2026-04-10"
     },
     {
       "id": "network-guard",
@@ -253,7 +253,7 @@
       "version": "",
       "recommended": true,
       "created": "",
-      "last_updated": "2026-03-12"
+      "last_updated": "2026-04-10"
     },
     {
       "id": "permission-auditor",
@@ -271,7 +271,7 @@
       "version": "",
       "recommended": true,
       "created": "",
-      "last_updated": "2026-03-30"
+      "last_updated": "2026-04-10"
     },
     {
       "id": "post-green",
@@ -294,7 +294,7 @@
       "version": "",
       "recommended": true,
       "created": "",
-      "last_updated": "2026-04-04"
+      "last_updated": "2026-04-10"
     },
     {
       "id": "session-snapshot",
@@ -308,12 +308,13 @@
         "hook",
         "规则",
         "测试",
-        "bug"
+        "bug",
+        "refactor"
       ],
       "version": "",
       "recommended": true,
       "created": "",
-      "last_updated": "2026-04-04"
+      "last_updated": "2026-04-24"
     },
     {
       "id": "stuck-detector",
@@ -336,7 +337,7 @@
       "version": "",
       "recommended": true,
       "created": "",
-      "last_updated": "2026-03-12"
+      "last_updated": "2026-04-24"
     },
     {
       "id": "test-sync",
@@ -353,7 +354,7 @@
       "version": "",
       "recommended": true,
       "created": "",
-      "last_updated": "2026-03-30"
+      "last_updated": "2026-04-10"
     },
     {
       "id": "agents",
@@ -375,7 +376,7 @@
       "version": "",
       "recommended": true,
       "created": "",
-      "last_updated": "2026-04-02"
+      "last_updated": "2026-04-10"
     },
     {
       "id": "MEM_F_I_001",
@@ -393,7 +394,7 @@
       "version": "",
       "recommended": true,
       "created": "2026-03-03",
-      "last_updated": "2026-03-12"
+      "last_updated": "2026-04-10"
     },
     {
       "id": "MEM_F_I_002",
@@ -413,7 +414,7 @@
       "version": "",
       "recommended": true,
       "created": "2026-03-03",
-      "last_updated": "2026-03-12"
+      "last_updated": "2026-04-10"
     },
     {
       "id": "MEM_F_I_003",
@@ -435,7 +436,7 @@
       "version": "",
       "recommended": true,
       "created": "2026-03-03",
-      "last_updated": "2026-03-12"
+      "last_updated": "2026-04-10"
     },
     {
       "id": "MEM_F_I_004",
@@ -454,7 +455,7 @@
       "version": "",
       "recommended": true,
       "created": "2026-03-03",
-      "last_updated": "2026-03-12"
+      "last_updated": "2026-04-10"
     },
     {
       "id": "MEM_F_I_005",
@@ -471,7 +472,7 @@
       "version": "",
       "recommended": true,
       "created": "2026-03-03",
-      "last_updated": "2026-03-12"
+      "last_updated": "2026-04-10"
     },
     {
       "id": "MEM_F_I_006",
@@ -490,7 +491,7 @@
       "version": "",
       "recommended": true,
       "created": "2026-03-03",
-      "last_updated": "2026-03-12"
+      "last_updated": "2026-04-10"
     },
     {
       "id": "MEM_F_I_007",
@@ -506,7 +507,7 @@
       "version": "",
       "recommended": true,
       "created": "2026-03-03",
-      "last_updated": "2026-03-12"
+      "last_updated": "2026-04-10"
     },
     {
       "id": "MEM_F_C_001",
@@ -523,7 +524,7 @@
       "version": "",
       "recommended": true,
       "created": "2026-03-03",
-      "last_updated": "2026-03-12"
+      "last_updated": "2026-04-10"
     },
     {
       "id": "MEM_F_C_002",
@@ -542,7 +543,7 @@
       "version": "",
       "recommended": true,
       "created": "2026-03-03",
-      "last_updated": "2026-03-12"
+      "last_updated": "2026-04-10"
     },
     {
       "id": "MEM_F_C_003",
@@ -562,7 +563,7 @@
       "version": "",
       "recommended": true,
       "created": "2026-03-03",
-      "last_updated": "2026-03-12"
+      "last_updated": "2026-04-10"
     },
     {
       "id": "MEM_F_C_004",
@@ -581,7 +582,7 @@
       "version": "",
       "recommended": true,
       "created": "2026-03-03",
-      "last_updated": "2026-03-12"
+      "last_updated": "2026-04-10"
     },
     {
       "id": "MEM_F_C_005",
@@ -599,7 +600,7 @@
       "version": "",
       "recommended": true,
       "created": "2026-03-03",
-      "last_updated": "2026-03-12"
+      "last_updated": "2026-04-10"
     },
     {
       "id": "concurrency",
@@ -619,7 +620,7 @@
       "version": "",
       "recommended": true,
       "created": "",
-      "last_updated": "2026-03-30"
+      "last_updated": "2026-04-10"
     },
     {
       "id": "http",
@@ -635,7 +636,7 @@
       "version": "",
       "recommended": true,
       "created": "",
-      "last_updated": "2026-03-12"
+      "last_updated": "2026-04-10"
     },
     {
       "id": "tdd_patterns",
@@ -658,7 +659,7 @@
       "version": "",
       "recommended": true,
       "created": "",
-      "last_updated": "2026-03-30"
+      "last_updated": "2026-04-10"
     },
     {
       "id": "type_safety",
@@ -679,7 +680,7 @@
       "version": "",
       "recommended": true,
       "created": "",
-      "last_updated": "2026-03-30"
+      "last_updated": "2026-04-10"
     }
   ]
 }

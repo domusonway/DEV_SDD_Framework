@@ -61,8 +61,7 @@ def get_session_dir(root: Path, project: str) -> Path:
 
 
 def get_current_session_file(session_dir: Path) -> Path | None:
-    today = datetime.now().strftime("%Y-%m-%d")
-    files = sorted(session_dir.glob(f"{today}_*.md"), reverse=True)
+    files = sorted(session_dir.glob("*.md"), key=lambda p: p.stat().st_mtime, reverse=True)
     for file_path in files:
         content = file_path.read_text(encoding="utf-8")
         if "status: in-progress" in content:
@@ -70,8 +69,57 @@ def get_current_session_file(session_dir: Path) -> Path | None:
     return None
 
 
-def create_session_file(session_dir: Path, session_id: str) -> Path:
-    return session_dir / f"{session_id}.md"
+def _normalize_slug(text: str) -> str:
+    slug = re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")
+    return slug
+
+
+def detect_task_domain(task: str) -> str:
+    text = (task or "").lower()
+    if any(token in text for token in ["bug", "fix", "修复", "故障", "异常"]):
+        return "bugfix"
+    if any(token in text for token in ["plan", "规划", "计划", "todo", "排期"]):
+        return "planning"
+    if any(token in text for token in ["memory", "记忆", "沉淀", "candidate"]):
+        return "memory"
+    if any(token in text for token in ["test", "pytest", "验证", "validate", "验收"]):
+        return "validation"
+    if any(token in text for token in ["doc", "文档", "spec", "brief"]):
+        return "docs"
+    if any(token in text for token in ["network", "http", "socket", "gateway", "api"]):
+        return "network"
+    if any(token in text for token in ["refactor", "重构"]):
+        return "refactor"
+    return "general"
+
+
+def create_session_file(session_dir: Path, task: str) -> Path:
+    domain = detect_task_domain(task)
+    base_slug = _normalize_slug(task)
+    if not base_slug:
+        base_slug = domain
+    candidate = session_dir / f"{base_slug}.md"
+    if not candidate.exists():
+        return candidate
+    index = 2
+    while True:
+        candidate = session_dir / f"{base_slug}-{index}.md"
+        if not candidate.exists():
+            return candidate
+        index += 1
+
+
+def update_frontmatter_field(file_path: Path, key: str, value: str) -> None:
+    content = file_path.read_text(encoding="utf-8")
+    pattern = re.compile(rf"^{re.escape(key)}:\s*.*$", re.MULTILINE)
+    if pattern.search(content):
+        updated = pattern.sub(f"{key}: {value}", content, count=1)
+    else:
+        if content.startswith("---\n"):
+            updated = content.replace("---\n", f"---\n{key}: {value}\n", 1)
+        else:
+            updated = content
+    file_path.write_text(updated, encoding="utf-8")
 
 
 def parse_session_file(file_path: Path) -> dict[str, Any]:
@@ -79,12 +127,18 @@ def parse_session_file(file_path: Path) -> dict[str, Any]:
     task_match = re.search(r"^task: (.+)$", content, re.MULTILINE)
     session_id_match = re.search(r"^session_id: (.+)$", content, re.MULTILINE)
     project_match = re.search(r"^project: (.+)$", content, re.MULTILINE)
+    domain_match = re.search(r"^domain: (.+)$", content, re.MULTILINE)
+    created_match = re.search(r"^created_at: (.+)$", content, re.MULTILINE)
+    updated_match = re.search(r"^updated_at: (.+)$", content, re.MULTILINE)
     status = "completed" if "status: completed" in content else "in-progress"
     next_action_match = re.search(r"^下次继续: (.+)$", content, re.MULTILINE)
     return {
         "session_id": (session_id_match.group(1).strip() if session_id_match else file_path.stem),
         "project": project_match.group(1).strip() if project_match else "unknown",
         "task": task_match.group(1).strip() if task_match else "未知任务",
+        "domain": domain_match.group(1).strip() if domain_match else "general",
+        "created_at": created_match.group(1).strip() if created_match else "",
+        "updated_at": updated_match.group(1).strip() if updated_match else "",
         "status": status,
         "checkpoint_count": content.count("[CHECKPOINT"),
         "next_action": next_action_match.group(1).strip() if next_action_match else None,
@@ -105,18 +159,23 @@ def cmd_start(args) -> int:
     session_dir = get_session_dir(root, project)
 
     now = datetime.now()
-    session_id = now.strftime("%Y-%m-%d_%H-%M")
+    session_id = now.strftime("%Y%m%d-%H%M%S")
     time_str = now.strftime("%H:%M")
+    timestamp = now.strftime("%Y-%m-%d %H:%M")
+    domain = detect_task_domain(args.task)
 
     prev = get_current_session_file(session_dir)
     resume_note = f"续接 {prev.stem}" if prev else "新会话"
-    filepath = create_session_file(session_dir, session_id)
+    filepath = create_session_file(session_dir, args.task)
     filepath.write_text(
         f"---\n"
         f"status: in-progress\n"
         f"session_id: {session_id}\n"
         f"project: {project}\n"
+        f"domain: {domain}\n"
         f"task: {args.task}\n"
+        f"created_at: {timestamp}\n"
+        f"updated_at: {timestamp}\n"
         f"---\n\n"
         f"[SESSION-START]\n"
         f"时间: {time_str}\n"
@@ -148,6 +207,7 @@ def cmd_checkpoint(args) -> int:
             f"当前状态: {args.state}\n"
             f"[/CHECKPOINT]\n"
         )
+    update_frontmatter_field(filepath, "updated_at", datetime.now().strftime("%Y-%m-%d %H:%M"))
     emit(args, status="ok", message=f"[session-snapshot] ✅ 检查点已写入: {filepath.name}", data=parse_session_file(filepath))
     return 0
 
@@ -159,10 +219,21 @@ def cmd_end(args) -> int:
     filepath = get_current_session_file(session_dir)
     if not filepath:
         now = datetime.now()
-        session_id = now.strftime("%Y-%m-%d_%H-%M")
-        filepath = create_session_file(session_dir, session_id)
+        session_id = now.strftime("%Y%m%d-%H%M%S")
+        timestamp = now.strftime("%Y-%m-%d %H:%M")
+        filepath = create_session_file(session_dir, "general")
         filepath.write_text(
-            f"---\nstatus: in-progress\nsession_id: {session_id}\nproject: {project}\ntask: 未记录\n---\n\n",
+            (
+                f"---\n"
+                f"status: in-progress\n"
+                f"session_id: {session_id}\n"
+                f"project: {project}\n"
+                f"domain: general\n"
+                f"task: 未记录\n"
+                f"created_at: {timestamp}\n"
+                f"updated_at: {timestamp}\n"
+                f"---\n\n"
+            ),
             encoding="utf-8",
         )
 
@@ -181,6 +252,7 @@ def cmd_end(args) -> int:
 
     content = filepath.read_text(encoding="utf-8")
     filepath.write_text(content.replace("status: in-progress", "status: completed", 1), encoding="utf-8")
+    update_frontmatter_field(filepath, "updated_at", datetime.now().strftime("%Y-%m-%d %H:%M"))
     emit(args, status="ok", message=f"[session-snapshot] ✅ 会话已关闭: {filepath.name}", data=parse_session_file(filepath))
     return 0
 
@@ -189,7 +261,7 @@ def cmd_list(args) -> int:
     root = find_project_root()
     project = get_project_name(root)
     session_dir = get_session_dir(root, project)
-    files = sorted(session_dir.glob("*.md"), reverse=True)[:14]
+    files = sorted(session_dir.glob("*.md"), key=lambda p: p.stat().st_mtime, reverse=True)[:14]
     records = [parse_session_file(file_path) for file_path in files]
 
     if args.latest:

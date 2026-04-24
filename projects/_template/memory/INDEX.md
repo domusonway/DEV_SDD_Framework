@@ -75,7 +75,7 @@
 
 ## 记忆文件列表
 
-（项目进行中按需添加）
+- `memory/<domain>/<topic>.md`（示例：`memory/testing/pytest-entrypoint.md`）
 
 ---
 

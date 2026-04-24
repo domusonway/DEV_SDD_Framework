@@ -30,6 +30,7 @@ That is where a concrete project's structured plan, generated plan view, and any
 
 At the project level:
 - `projects/<PROJECT>/docs/plan.json` holds the execution state
+- `projects/<PROJECT>/docs/sub_docs/` holds task-level analysis/implementation/validation details
 - `projects/<PROJECT>/docs/PLAN.md` is a derived or generated markdown view
 - `projects/<PROJECT>/docs/IMPLEMENTATION_PLAN.md` is a fallback legacy markdown source when structured plan data does not yet exist
 
@@ -56,6 +57,7 @@ The framework expects project `plan.json` files to carry the execution state nee
 - module membership per batch
 - dependency links
 - module state such as `pending`, `in_progress`, `completed`, or `skipped`
+- pointers to task-level sub-docs (for example `sub_doc_path` or `doc_index`)
 - milestone metadata when applicable
 
 The template at `projects/_template/docs/plan.json` shows the expected shape.

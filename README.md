@@ -170,37 +170,37 @@ bash .claude/hooks/verify-rules/check.sh                 # 每日健康检查
 
 - 根目录 `docs/*`：框架文档，只定义框架级规则和命令约定。
 - 项目 `docs/plan.json`：执行真相（execution truth），所有工作状态以它为准。
+- 项目 `docs/sub_docs/*`：任务级设计/实现/验证细节，按任务 ID 管理。
 - 项目 `docs/PLAN.md`：由 `plan.json` 派生的可读视图，供人查看，不作为真相源。
-- 项目 `docs/TODO.md`：项目本地笔记 / 审计 / 管理视图，可编辑，但不是 truth source。
 
 ### 推荐命令流
 
-按这个顺序走，避免计划和 TODO 漂移：
+按这个顺序走，避免计划漂移：
 
 1. `INIT`：初始化项目结构和 ownership。
 2. `REDEFINE`：重写规则、边界和 source-of-truth 定义。
-3. `UPDATE_TODO`：把用户变更合并到项目本地 TODO 视图。
-4. `START_WORK`：按 `plan.json`、session、handoff 恢复上下文。
-5. `FIX`：先完成问题分诊（triage），再输出 `minimal_change` / `comprehensive_change` 两档修复方案供执行。
+3. `START_WORK`：按 `plan.json`、session、handoff 恢复上下文。
+4. `FIX`：先完成问题分诊（triage），再输出 `minimal_change` / `comprehensive_change` 两档修复方案供执行。
+
+`UPDATE_TODO` 已降级为稳定 ID 维护命令，不再读写 `docs/TODO.md`。
+docs/TODO.md 已废弃，项目执行状态统一由 `docs/plan.json` 承载。
 
 `REDEFIND` 仅是 `REDEFINE` 的兼容别名；迁移期可以接受，正式文档和新流程只使用 `REDEFINE`。
 
 ### 迁移建议
 
-- **框架维护者**：先把 root `docs/*` 统一改成框架文档语义，再同步命令说明，确保 `plan.json`、`PLAN.md`、`TODO.md` 的职责不重叠。
-- **新项目 / 模板用户**：创建项目后，直接把 `docs/plan.json` 作为唯一执行入口，`PLAN.md` 和 `TODO.md` 只做派生展示和本地管理。
-- **从 markdown-first 迁移的老项目**：先保留旧 TODO/PLAN 作为只读参考，再把最新状态回填到 `plan.json`，最后切换到 `START_WORK` 驱动续接，避免双写。
+- **框架维护者**：先把 root `docs/*` 统一改成框架文档语义，再同步命令说明，确保 `plan.json` 与 `PLAN.md` 的职责清晰。
+- **新项目 / 模板用户**：创建项目后，直接把 `docs/plan.json` 作为唯一执行入口，`PLAN.md` 只做派生展示。
+- **从 markdown-first 迁移的老项目**：先保留旧 PLAN 文档作为只读参考，再把最新状态回填到 `plan.json`，最后切换到 `START_WORK` 驱动续接，避免双写。
 
-### TODO 稳定 ID 迁移（必做）
+### 稳定 ID 维护（必做）
 
-- 目标格式：`docs/TODO.md` 必须包含 `<!-- DEV_SDD:MANAGED:BEGIN --> ... <!-- DEV_SDD:MANAGED:END -->` 管理区，并使用 `DEV_SDD:TASK:id=...` 元数据行。
 - 稳定 ID 来源：以 `docs/plan.json` 为准（每个模块持久化 `id`，如 `T-001`）。
-- 推荐迁移路径：先执行 `INIT` 或 `REDEFINE` 生成/重建 `plan.json` 与 managed TODO，再执行 `UPDATE_TODO` 做后续增量同步。
-- 兼容说明：旧版无管理区 TODO 仅作为迁移输入；进入 managed 模式后，`START_WORK` / `UPDATE_TODO` 才能进行可靠对账与按 ID 更新。
+- 推荐路径：执行 `INIT` 或 `REDEFINE` 生成/重建 `plan.json` 后，必要时执行 `UPDATE_TODO` 仅做 stable ID 自动补齐。
 
 ### 回滚 / fallback
 
-- 如果迁移中出现状态不一致，先回滚到上一个稳定 `plan.json` 快照，再重新生成 `PLAN.md` 和 `TODO.md`。
+- 如果迁移中出现状态不一致，先回滚到上一个稳定 `plan.json` 快照，再重新生成 `PLAN.md`。
 - 如果新命令还没全量接入，先用 `START_WORK` + `FIX` 保持执行，旧 markdown 只能作为 fallback 参考，不得重新变成 truth source。
 
 ### 迁移后验证
@@ -216,7 +216,7 @@ print(Path('projects/<PROJECT>/docs/plan.json').exists())
 PY
 ```
 
-确认点：`plan.json` 为准，`PLAN.md` 为派生，`TODO.md` 为管理视图，命令流按 `INIT → REDEFINE → UPDATE_TODO → START_WORK → FIX` 运行。
+确认点：`plan.json` 为准，`PLAN.md` 为派生，命令流按 `INIT → REDEFINE → START_WORK → FIX` 运行。
 
 ## Hook 触发规则
 

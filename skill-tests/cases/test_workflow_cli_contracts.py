@@ -89,25 +89,6 @@ def make_start_work_project() -> Path:
         }, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
-    (project_root / "docs" / "TODO.md").write_text(
-        "\n".join([
-            f"# {project_root.name} · 任务跟踪",
-            "",
-            "> ⚠️ 执行状态以 `docs/plan.json` 为准；此文件仅记录项目级备注、审计和人工跟进。",
-            "",
-            "<!-- DEV_SDD:MANAGED:BEGIN -->",
-            "- [ ] module_alpha <!-- DEV_SDD:TASK:id=T-001;name=module_alpha;state=pending -->",
-            "- [>] module_beta <!-- DEV_SDD:TASK:id=T-002;name=module_beta;state=in_progress -->",
-            "<!-- DEV_SDD:MANAGED:END -->",
-            "",
-            "<!-- DEV_SDD:USER_NOTES:BEGIN -->",
-            "## 用户备注",
-            "- workflow fixture",
-            "<!-- DEV_SDD:USER_NOTES:END -->",
-            "",
-        ]),
-        encoding="utf-8",
-    )
     return project_root
 
 
@@ -208,7 +189,7 @@ def test_repo_relative_project_resolution_is_stable_across_working_directories()
         cleanup_project_root(fix_project)
 
 
-def test_init_generated_todo_is_consumable_by_start_work_and_update_todo():
+def test_init_outputs_plan_and_sub_docs_are_consumable_by_start_work_and_update_todo():
     init_project = clone_project_fixture(INIT_FIXTURES, "empty-project", "workflow_init_integration")
     try:
         project_arg = repo_relative(init_project)
@@ -218,17 +199,14 @@ def test_init_generated_todo_is_consumable_by_start_work_and_update_todo():
         init_payload = parse_json_output(init_result, "INIT integration")
         assert init_payload["status"] == "ok"
 
-        todo_text = (init_project / "docs" / "TODO.md").read_text(encoding="utf-8")
-        assert "<!-- DEV_SDD:MANAGED:BEGIN -->" in todo_text
-        assert "<!-- DEV_SDD:MANAGED:END -->" in todo_text
-        assert "DEV_SDD:TASK:id=T-001;" in todo_text
+        assert not (init_project / "docs" / "TODO.md").exists(), "INIT 不应再生成 docs/TODO.md"
+        assert (init_project / "docs" / "sub_docs").exists(), "INIT 应生成 docs/sub_docs"
 
         start_work = run_tool(START_WORK_TOOL, project_arg, "--json")
         assert start_work.returncode == 0, f"START_WORK 读取 INIT 产物失败: {start_work.stderr}"
         start_payload = parse_json_output(start_work, "START_WORK integration")
         reconciliation = start_payload["data"].get("reconciliation") or {}
-        assert reconciliation.get("status") == "aligned", f"INIT 生成 TODO 应可被 START_WORK 对账: {reconciliation}"
-        assert reconciliation.get("warnings") == []
+        assert reconciliation.get("status") == "not_applicable", f"TODO 废弃后应跳过 TODO 对账: {reconciliation}"
 
         plan = json.loads((init_project / "docs" / "plan.json").read_text(encoding="utf-8"))
         first_id = plan["batches"][0]["modules"][0]["id"]
@@ -236,8 +214,9 @@ def test_init_generated_todo_is_consumable_by_start_work_and_update_todo():
         assert update_result.returncode == 0, f"UPDATE_TODO 读取 INIT 产物失败: {update_result.stderr}"
         update_payload = parse_json_output(update_result, "UPDATE_TODO integration")
         assert update_payload["status"] == "ok"
-        assert update_payload["data"].get("merge_mode") == "managed"
-        assert not (update_payload["data"].get("confirmation") or {}).get("required", False), "managed TODO 不应要求确认覆盖"
+        assert update_payload["data"].get("deprecated") is True
+        writes = {item["path"]: item["action"] for item in update_payload["data"].get("writes", [])}
+        assert "docs/plan.json" in writes
     finally:
         cleanup_project_root(init_project)
 
@@ -246,7 +225,7 @@ if __name__ == "__main__":
     tests = [
         test_json_envelope_consistent_across_workflow_helpers,
         test_repo_relative_project_resolution_is_stable_across_working_directories,
-        test_init_generated_todo_is_consumable_by_start_work_and_update_todo,
+        test_init_outputs_plan_and_sub_docs_are_consumable_by_start_work_and_update_todo,
     ]
     failed = 0
     for test in tests:

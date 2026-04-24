@@ -22,12 +22,12 @@ def read_readme() -> str:
 def test_workflow_migration_commands_and_artifacts_are_documented():
     content = read_readme()
 
-    for fragment in ["INIT", "REDEFINE", "UPDATE_TODO", "START_WORK", "FIX", "plan.json", "TODO"]:
+    for fragment in ["INIT", "REDEFINE", "UPDATE_TODO", "START_WORK", "FIX", "plan.json", "sub_docs"]:
         assert fragment in content, f"README.md 缺少迁移/工作流关键片段: {fragment}"
 
-    assert "INIT → REDEFINE → UPDATE_TODO → START_WORK → FIX" in content, "README.md 缺少推荐命令流"
+    assert "INIT → REDEFINE → START_WORK → FIX" in content, "README.md 缺少推荐命令流"
     assert "`plan.json` 为准" in content, "README.md 缺少 plan.json 权威性说明"
-    assert "`TODO.md` 为管理视图" in content, "README.md 缺少 TODO 管理视图说明"
+    assert "docs/TODO.md 已废弃" in content, "README.md 缺少 TODO 废弃说明"
 
 
 def test_workflow_migration_fallback_and_compatibility_guidance_exist():

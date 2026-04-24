@@ -6,10 +6,10 @@
 ## 文件路径规则
 
 ```
-projects/<PROJECT>/memory/sessions/YYYY-MM-DD_HH-MM.md
+projects/<PROJECT>/memory/sessions/<domain-or-task-slug>.md
 ```
 
-每次对话对应一个文件。同一天多次对话按时间戳区分。
+每次对话对应一个文件。文件名按任务领域/任务名 slug 命名，时间写入 frontmatter 字段。
 
 ---
 
@@ -22,16 +22,19 @@ projects/<PROJECT>/memory/sessions/YYYY-MM-DD_HH-MM.md
 ```markdown
 ---
 status: in-progress
-session_id: YYYY-MM-DD_HH-MM
+session_id: YYYYMMDD-HHMMSS
 project: <PROJECT>
+domain: <planning | bugfix | validation | docs | network | refactor | general>
 task: <用户描述的任务，若未知写"待明确">
+created_at: YYYY-MM-DD HH:MM
+updated_at: YYYY-MM-DD HH:MM
 ---
 
 [SESSION-START]
 时间: HH:MM
 加载记忆: <已加载的 MEM_ID 列表，无则写"仅 CRITICAL">
 项目状态: <PLAN.md 当前进度，如"批次1/3，request_parser 待实现">
-续接: <若有上次 in-progress 文件，写"续接 YYYY-MM-DD_HH-MM"，否则写"新会话">
+续接: <若有上次 in-progress 文件，写"续接 <文件名>"，否则写"新会话">
 [/SESSION-START]
 ```
 

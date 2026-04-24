@@ -83,7 +83,6 @@ def test_bootstrap_empty_project_creates_authoritative_plan_and_docs():
             "README.md",
             "docs/plan.json",
             "docs/PLAN.md",
-            "docs/TODO.md",
             "env/README.md",
             "env/requirements.txt",
             "env/environment.yml",
@@ -101,7 +100,6 @@ def test_bootstrap_empty_project_creates_authoritative_plan_and_docs():
         assert (project_root / "README.md").exists(), "应生成 README.md"
         assert (project_root / "docs/plan.json").exists(), "应生成 plan.json"
         assert (project_root / "docs/PLAN.md").exists(), "应生成 PLAN.md"
-        assert (project_root / "docs/TODO.md").exists(), "应生成 TODO.md"
         assert (project_root / "env/README.md").exists(), "应生成 env/README.md"
         assert (project_root / "env/requirements.txt").exists(), "应生成 env/requirements.txt"
         assert (project_root / "env/environment.yml").exists(), "应生成 env/environment.yml"
@@ -147,7 +145,7 @@ def test_existing_docs_require_confirmation_and_preserve_files():
         confirmation = data["data"].get("confirmation") or {}
         assert confirmation.get("required") is True, "应明确要求确认"
         conflicts = {item["path"] for item in confirmation.get("conflicts", [])}
-        assert {"CLAUDE.md", "README.md", "docs/PLAN.md", "docs/TODO.md", "docs/plan.json"}.issubset(conflicts), (
+        assert {"CLAUDE.md", "README.md", "docs/PLAN.md", "docs/plan.json"}.issubset(conflicts), (
             f"应列出需要确认的冲突文件: {conflicts}"
         )
         assert confirmation.get("diff_preview"), "应返回差异预览元数据"

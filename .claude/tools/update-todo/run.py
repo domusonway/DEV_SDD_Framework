@@ -4,8 +4,8 @@ update-todo/run.py
 
 用途:
   /DEV_SDD:update-todo 的执行辅助 CLI。
-  以 docs/plan.json 为权威状态源，按稳定 ID 合并 docs/TODO.md 的工具管理区，
-  并保留用户备注区；冲突时返回结构化 confirmation metadata。
+  以 docs/plan.json 为权威状态源，维护稳定 ID（stable IDs）。
+  docs/TODO.md 已废弃，本工具不再读写 TODO 文件。
 
 用法:
   python3 .claude/tools/update-todo/run.py [project-name-or-path] [--ids T-001,T-003] [--json] [--dry-run]
@@ -62,13 +62,11 @@ def out(payload: dict[str, Any], as_json: bool) -> None:
     print("[UPDATE_TODO]")
     print(f"项目: {data.get('project', 'unknown')}")
     print(f"计划源: {data.get('plan_source', 'docs/plan.json')}")
-    print(f"TODO: {data.get('todo_path', 'docs/TODO.md')}")
     print(f"dry-run: {'yes' if data.get('dry_run') else 'no'}")
     print(f"IDs: {', '.join(data.get('selected_ids', [])) or 'ALL'}")
     print(f"写入: {', '.join(item.get('path', '') for item in data.get('writes', [])) or '无'}")
-    confirmation = data.get("confirmation") or {}
-    if confirmation.get("required"):
-        print(f"确认: required ({confirmation.get('token', '')})")
+    if data.get("deprecated"):
+        print("说明: docs/TODO.md 已废弃，UPDATE_TODO 仅保留 stable ID 维护能力")
     print("[/UPDATE_TODO]")
 
 
@@ -292,23 +290,6 @@ def parse_managed_todo(content: str) -> dict[str, Any]:
     }
 
 
-def compute_writes(todo_exists: bool, todo_before: str, todo_after: str, plan_changed: bool) -> list[dict[str, str]]:
-    writes: list[dict[str, str]] = []
-    plan_action = "maintain"
-    if plan_changed:
-        plan_action = "overwrite"
-    writes.append({"path": "docs/plan.json", "action": plan_action})
-
-    if not todo_exists:
-        todo_action = "create"
-    elif todo_before == todo_after:
-        todo_action = "maintain"
-    else:
-        todo_action = "overwrite"
-    writes.append({"path": "docs/TODO.md", "action": todo_action})
-    return writes
-
-
 def run(target_arg: str | None, ids_raw: str | None, dry_run: bool, confirm_overwrite: str | None) -> dict[str, Any]:
     target_root, target_label = resolve_target(target_arg)
     if target_root is None:
@@ -365,12 +346,11 @@ def run(target_arg: str | None, ids_raw: str | None, dry_run: bool, confirm_over
     if plan_conflicts:
         return {
             "status": STATUS_ERROR,
-            "message": "plan.json 中存在重复 stable ID，无法安全合并 TODO",
+            "message": "plan.json 中存在重复 stable ID，无法安全维护计划索引",
             "data": {
                 "project": str(plan.get("project") or target_label),
                 "project_root": rel_path(target_root, ROOT),
                 "plan_source": "docs/plan.json",
-                "todo_path": "docs/TODO.md",
                 "dry_run": dry_run,
                 "conflicts": plan_conflicts,
                 "next_action": "修复 docs/plan.json 的重复 id 后重试",
@@ -388,7 +368,6 @@ def run(target_arg: str | None, ids_raw: str | None, dry_run: bool, confirm_over
                 "project": str(plan.get("project") or target_label),
                 "project_root": rel_path(target_root, ROOT),
                 "plan_source": "docs/plan.json",
-                "todo_path": "docs/TODO.md",
                 "dry_run": dry_run,
                 "selected_ids": selected_ids,
                 "missing_ids": missing_selected,
@@ -396,118 +375,26 @@ def run(target_arg: str | None, ids_raw: str | None, dry_run: bool, confirm_over
             },
         }
 
-    todo_path = target_root / "docs" / "TODO.md"
-    todo_exists = todo_path.exists()
-    todo_before = safe_read_text(todo_path) if todo_exists else ""
-    generated_full = render_managed_todo(str(plan.get("project") or target_label), tasks)
-
-    conflicts: list[dict[str, Any]] = []
-    todo_after = todo_before
-    merge_mode = "managed"
-
-    if not todo_exists:
-        merge_mode = "full_regenerate"
-        todo_after = generated_full
-    else:
-        parsed = parse_managed_todo(todo_before)
-        if not parsed.get("ok"):
-            legacy = render_legacy_baseline_todo(str(plan.get("project") or target_label), plan)
-            if todo_before == legacy or not todo_before.strip():
-                merge_mode = "full_regenerate"
-                todo_after = generated_full
-            else:
-                merge_mode = "requires_confirmation"
-                conflicts.append({
-                    "reason": "non_managed_todo_requires_full_regenerate",
-                    "id": "*",
-                    "detail": parsed.get("reason", "parse_failed"),
-                })
-        else:
-            conflicts.extend(parsed.get("conflicts", []))
-
-            items = parsed["items"]
-            managed_lines = list(parsed["managed_lines"])
-            line_ids = parsed["line_ids"]
-
-            for selected_id in selected_ids:
-                if selected_id in items:
-                    item = items[selected_id]
-                    local_edit = (
-                        item["display_name"] != item["meta_name"]
-                        or item["display_state"] != item["meta_state"]
-                    )
-                    if local_edit:
-                        conflicts.append({
-                            "reason": "local_managed_edit",
-                            "id": selected_id,
-                            "line": item["line_index"] + 1,
-                            "current": item["raw_line"],
-                            "proposed": render_task_line(selected_id, task_by_id[selected_id]["name"], task_by_id[selected_id]["state"]),
-                        })
-
-            for todo_id in [tid for tid in line_ids if tid]:
-                if todo_id not in task_by_id:
-                    conflicts.append({
-                        "reason": "orphan_local_item",
-                        "id": todo_id,
-                    })
-
-            if not conflicts or (confirm_overwrite and confirm_overwrite == build_confirmation_token(target_root, conflicts)):
-                id_to_line = {
-                    task_id: render_task_line(task_id, task_by_id[task_id]["name"], task_by_id[task_id]["state"])
-                    for task_id in selected_ids
-                }
-                for task_id, line in id_to_line.items():
-                    if task_id in items:
-                        managed_lines[items[task_id]["line_index"]] = line
-                    else:
-                        managed_lines.append(line)
-
-                inner = "\n".join(managed_lines)
-                if parsed["had_trailing_newline"] and (inner or parsed["managed_lines"]):
-                    inner += "\n"
-                todo_after = todo_before[: parsed["managed_start"]] + inner + todo_before[parsed["managed_end"] :]
-
     data: dict[str, Any] = {
         "project": str(plan.get("project") or target_label),
         "project_root": rel_path(target_root, ROOT),
         "plan_source": "docs/plan.json",
-        "todo_path": "docs/TODO.md",
         "dry_run": dry_run,
         "selected_ids": selected_ids,
-        "merge_mode": merge_mode,
+        "deprecated": True,
     }
 
-    if conflicts:
-        token = build_confirmation_token(target_root, conflicts)
-        confirmation = {
-            "required": True,
-            "token": token,
-            "conflicts": conflicts,
-            "next_action": f"使用 --confirm-overwrite {token} 重新执行 UPDATE_TODO",
-        }
-        data["confirmation"] = confirmation
-        if confirm_overwrite != token:
-            data["writes"] = compute_writes(todo_exists, todo_before, todo_before, False)
-            return {
-                "status": STATUS_WARNING,
-                "message": "检测到本地冲突或不可安全重建场景，需确认后才能覆盖",
-                "data": data,
-            }
-
-    writes = compute_writes(todo_exists, todo_before, todo_after, plan_changed)
+    plan_action = "overwrite" if plan_changed else "maintain"
+    writes = [{"path": "docs/plan.json", "action": plan_action}]
     data["writes"] = writes
 
     if not dry_run:
         if plan_changed:
             plan_path.write_text(json.dumps(plan, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-        if (not todo_exists) or (todo_before != todo_after):
-            todo_path.parent.mkdir(parents=True, exist_ok=True)
-            todo_path.write_text(todo_after, encoding="utf-8")
 
     return {
         "status": STATUS_OK,
-        "message": "UPDATE_TODO 预览完成：已按 stable ID 计算合并结果" if dry_run else "UPDATE_TODO 已完成：按 stable ID 更新 TODO 并保留用户备注区",
+        "message": "UPDATE_TODO 预览完成：仅执行 plan.json stable ID 维护（docs/TODO.md 已废弃）" if dry_run else "UPDATE_TODO 已完成：仅维护 plan.json stable ID（未写入 docs/TODO.md）",
         "data": data,
     }
 
@@ -518,13 +405,13 @@ def main() -> None:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 用途:
-  基于 docs/plan.json 的稳定 ID 合并 docs/TODO.md 的工具管理区，
-  支持按 --ids 进行部分更新，并在冲突时返回 confirmation metadata。
+  基于 docs/plan.json 维护 stable IDs。
+  docs/TODO.md 已废弃，本工具不会再写入 TODO 文件。
 
 示例:
   python3 .claude/tools/update-todo/run.py structured-light-stereo --json --dry-run
   python3 .claude/tools/update-todo/run.py skill-tests/fixtures/update_todo/partial-merge-project --ids T-002,T-004 --json
-  python3 .claude/tools/update-todo/run.py skill-tests/fixtures/update_todo/conflict-project --ids T-003 --confirm-overwrite <token>
+  python3 .claude/tools/update-todo/run.py skill-tests/fixtures/update_todo/conflict-project --ids T-003 --json
 """,
     )
     parser.add_argument("project", nargs="?", help="可选：目标项目名或项目根目录路径")

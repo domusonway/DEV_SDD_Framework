@@ -36,8 +36,8 @@ Step 3: 输出确认语：
 ## 当前激活项目
 
 ```
-PROJECT: HarnessEvaluationFramework
-PROJECT_PATH: projects/HarnessEvaluationFramework
+PROJECT: lument_server
+PROJECT_PATH: projects/lument_server
 ```
 
 > 切换项目：修改上方 PROJECT 字段，或使用 /project:switch
@@ -63,6 +63,7 @@ PROJECT_PATH: projects/HarnessEvaluationFramework
 | 当前任务               | 读取路径                                         |
 | ------------------ | -------------------------------------------- |
 | 任何任务开始             | `memory/INDEX.md`                            |
+| 查看任务级实现细节         | `projects/<PROJECT>/docs/sub_docs/`          |
 | 任务描述后自动匹配记忆        | `.claude/skills/context-probe/SKILL.md`      |
 | 收到开发任务             | `.claude/skills/complexity-assess/SKILL.md`  |
 | TDD 实现阶段           | `.claude/skills/tdd-cycle/SKILL.md`          |
@@ -152,7 +153,7 @@ skill-changelog.md 版本追踪
 ## 项目 ↔ 框架 记忆边界
 
 ```
-写入 projects/<n>/memory/sessions/  ← 会话过程快照（此项目本次对话专用）
+写入 projects/<n>/memory/sessions/  ← 会话过程快照（按领域命名，时间写入 frontmatter）
 写入 projects/<n>/memory/           ← 此项目特有，换项目不适用
 写入 memory/candidates/             ← 候选池（人工审核后升级至框架）← 新增
 写入 memory/                        ← 跨项目通用，≥3个项目验证后升级至此

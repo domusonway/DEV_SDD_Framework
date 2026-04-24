@@ -54,14 +54,20 @@ action: <写入的 memory 文件路径 / candidate 路径 / 无>
 
 ### Step 3: 写项目记忆文件
 
-格式：`projects/<n>/memory/P_<项目缩写>_<序号>.md`
+格式：`projects/<n>/memory/<domain>/<topic>.md`
+
+示例：
+- `projects/HarnessEvaluationFramework/memory/network/gateway-routing.md`
+- `projects/HarnessEvaluationFramework/memory/testing/pytest-entrypoint.md`
 
 ```markdown
 ---
-id: P_XXX_001
+id: MEM_<DOMAIN>_<TOPIC>
 title: [一句话总结，即为规则]
 severity: BUG_FIX | DESIGN | PATTERN
-created: YYYY-MM-DD
+domain: network | testing | data | workflow | runtime
+created_at: YYYY-MM-DD HH:MM
+updated_at: YYYY-MM-DD HH:MM
 ---
 
 ## 规则

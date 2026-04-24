@@ -1,7 +1,18 @@
 {
-  "_comment": "结构化计划文件。由 plan-tracker/tracker.py 维护，PLAN.md 为自动生成的只读视图。状态值: pending/in_progress/completed/skipped",
+  "_comment": "结构化计划文件。plan.json 仅保存全局执行状态与索引；任务细节文档存放于 docs/sub_docs/。状态值: pending/in_progress/completed/skipped",
   "project": "{{PROJECT_NAME}}",
   "created": "{{DATE}}",
+  "doc_index": {
+    "root": "docs/sub_docs",
+    "tasks": [
+      {
+        "id": "T-001",
+        "type": "feature",
+        "module": "{{MODULE_A}}",
+        "path": "docs/sub_docs/feature/modules/{{MODULE_A}}/T-001.md"
+      }
+    ]
+  },
   "batches": [
     {
       "name": "批次 1（基础模块）",
@@ -12,6 +23,7 @@
           "complexity": "M",
           "risk": "",
           "deps": [],
+          "sub_doc_path": "docs/sub_docs/feature/modules/{{MODULE_A}}/T-001.md",
           "state": "pending",
           "completed_at": null
         },
@@ -20,6 +32,7 @@
           "complexity": "L",
           "risk": "",
           "deps": [],
+          "sub_doc_path": "docs/sub_docs/feature/modules/{{MODULE_B}}/T-002.md",
           "state": "pending",
           "completed_at": null
         }
@@ -34,6 +47,7 @@
           "complexity": "M",
           "risk": "接口稳定性",
           "deps": ["{{MODULE_A}}"],
+          "sub_doc_path": "docs/sub_docs/feature/modules/{{MODULE_C}}/T-003.md",
           "state": "pending",
           "completed_at": null
         }

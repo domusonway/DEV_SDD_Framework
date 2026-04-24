@@ -43,7 +43,7 @@
 4. 按依赖顺序逐模块读取 tdd-cycle/SKILL.md 实现
 
 ### H 模式
-1. 写完整文档套件（CONTEXT.md + PLAN.md + TODO.md + 所有 SPEC.md）
+1. 写完整文档套件（CONTEXT.md + plan.json + PLAN.md + sub_docs + 所有 SPEC.md）
 2. 读取 `.claude/agents/planner.md` 生成实现批次
 3. 按批次调用 implementer → reviewer → memory-keeper
 

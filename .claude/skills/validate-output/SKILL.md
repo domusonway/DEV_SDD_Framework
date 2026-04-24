@@ -16,7 +16,7 @@ post-green hook 触发后，或人工在所有测试通过后执行。
 python3 -m pytest tests/ -v --tb=short 2>&1 | tail -20
 ```
 - 所有测试 PASS，零 SKIP，零 ERROR
-- 若有 SKIP：必须有记录在案的原因（TODO.md）
+- 若有 SKIP：必须有记录在案的原因（session 快照或项目 memory）
 - **测试数量合理性：每个模块的测试函数数 ≥ SPEC 中行为规格小节数**
 
 ### 2. 实现完整性检查（新增，对应问题4）
@@ -131,4 +131,3 @@ def build_response(status_code: int, body: bytes,
 ```
 
 ````
-

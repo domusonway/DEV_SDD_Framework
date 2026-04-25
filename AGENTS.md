@@ -36,8 +36,8 @@ Step 3: 输出确认语：
 ## 当前激活项目
 
 ```
-PROJECT: lument_server
-PROJECT_PATH: projects/lument_server
+PROJECT: agentplatform
+PROJECT_PATH: projects/agentplatform
 ```
 
 > 切换项目：修改上方 PROJECT 字段，或使用 /project:switch

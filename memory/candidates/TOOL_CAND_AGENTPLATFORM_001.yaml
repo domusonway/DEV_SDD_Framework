@@ -1,0 +1,31 @@
+id: TOOL_CAND_AGENTPLATFORM_001
+candidate_type: tool_subcommand
+source_observer: check_tools
+source_project: agentplatform
+observed_evidence: |
+  During B7 close-out, `plan-tracker complete docs_test_matrix` and
+  `plan-tracker complete postgres_test_environment` were blocked by the
+  implementation integrity check because the checker parsed `docs/test_matrix.md`
+  and `docker-compose.yml` as Python syntax. The tasks were actually implemented,
+  but had to be marked complete by directly editing `docs/plan.json`.
+observed_pattern_key: "check_tools:plan-tracker-non-python-path:plan-tracker/complete"
+proposed_rule: "plan-tracker complete must skip Python syntax/integrity checks for non-code modules (docs/infra/yaml/markdown paths)."
+target_file: .claude/tools/plan-tracker/tracker.py
+proposed_diff: |
+  In `complete` flow, gate implementation checks by module type/path:
+  - Run Python integrity checks only for `type in {module, tests, integration}`
+    or file suffixes `.py`.
+  - For `type in {docs, infra, planning}` or suffixes `.md/.yml/.yaml/.json`,
+    run existence + non-empty validation instead of Python parser checks.
+  - Keep strict behavior for code modules unchanged.
+confidence: low
+validated_projects:
+  - agentplatform
+status: pending_review
+auto_attach: false
+auto_attach_triggered_projects: []
+auto_attach_issues: []
+created: 2026-04-25
+domain: agent_workflow
+secondary_target: .claude/tools/plan-tracker/check.py
+failure_count: 2

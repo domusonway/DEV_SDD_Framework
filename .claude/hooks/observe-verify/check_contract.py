@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 """
 observe-verify/check_contract.py
 将 SPEC.md 中定义的接口与实现文件的 AST 对比，验证契约一致性

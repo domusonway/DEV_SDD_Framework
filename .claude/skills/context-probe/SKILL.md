@@ -20,6 +20,36 @@ last_updated: 2026-03-31
 
 ## 执行步骤
 
+### Step 0: 优先使用可执行 helper
+
+```bash
+python3 .claude/tools/context-probe/run.py "<用户任务描述>" --json
+```
+
+若需要记录自动加载的记忆使用效果：
+
+```bash
+python3 .claude/tools/context-probe/run.py "<用户任务描述>" --project <PROJECT> --record-loaded --json
+```
+
+该 helper 输出 `matched_dimensions`、`auto_load`、`skipped`、`candidate_domains`，并可将自动加载项写入项目 `memory/memory_usage.jsonl`，作为后续 effectiveness/pruning 的输入。
+
+若需要按任务文本检索已有记忆，优先使用：
+
+```bash
+python3 .claude/tools/memory-search/run.py "<用户任务描述>" --project <PROJECT> --top-k 5 --json
+```
+
+需要把命中的记忆记录为 loaded 事件时追加 `--record-loaded`。
+
+需要更强语义召回时使用 Bailian embedding 混合检索：
+
+```bash
+python3 .claude/tools/memory-search/run.py "<用户任务描述>" --project <PROJECT> --mode hybrid --top-k 5 --json
+```
+
+语义检索默认从根目录 `config.yaml` 读取非密钥模型配置，从 `.env` 或环境变量读取 `DASHSCOPE_API_KEY`。默认模型为 `text-embedding-v4`（北京地域有 100 万 Token 免费额度），并把向量缓存到 `.cache/dev_sdd/memory_vectors.sqlite`。可用 `MEMORY_SEARCH_EMBEDDING_MODEL`、`MEMORY_SEARCH_EMBEDDING_DIMENSIONS`、`MEMORY_SEARCH_LLM_MODEL` 临时覆盖 `config.yaml`。
+
 ### Step 1: 提取任务关键词
 
 读取用户任务描述的前 300 字，识别以下维度：

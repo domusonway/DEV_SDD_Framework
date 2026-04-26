@@ -31,19 +31,67 @@ REPORTS_DIR.mkdir(exist_ok=True)
 
 CASES_FILE = GENERATED_DIR / "cases.json"
 
-_BASE = os.environ.get("ANTHROPIC_BASE_URL", "https://api.anthropic.com").rstrip("/")
-API_URL = f"{_BASE}/v1/messages"
-_API_KEY = os.environ.get("ANTHROPIC_AUTH_TOKEN") or os.environ.get("ANTHROPIC_API_KEY", "")
-MODEL = "claude-sonnet-4-6"
+def load_dotenv():
+    path = FRAMEWORK_ROOT / ".env"
+    if not path.exists():
+        return
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except Exception:
+        return
+    for line in lines:
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#") or "=" not in stripped:
+            continue
+        key, value = stripped.split("=", 1)
+        key = key.strip()
+        value = value.strip().strip("'\"")
+        if key and key not in os.environ:
+            os.environ[key] = value
+
+
+load_dotenv()
+
+COMMON_TOOL = FRAMEWORK_ROOT / ".claude" / "tools" / "workflow_cli_common.py"
+COMMON_SPEC = None
+workflow_cli_common = None
+if COMMON_TOOL.exists():
+    import importlib.util
+    COMMON_SPEC = importlib.util.spec_from_file_location("workflow_cli_common", COMMON_TOOL)
+    assert COMMON_SPEC and COMMON_SPEC.loader
+    workflow_cli_common = importlib.util.module_from_spec(COMMON_SPEC)
+    COMMON_SPEC.loader.exec_module(workflow_cli_common)
+
+FRAMEWORK_CONFIG = workflow_cli_common.load_framework_config(FRAMEWORK_ROOT) if workflow_cli_common else {}
+SKILL_TEST_CONFIG = workflow_cli_common.get_config_value(FRAMEWORK_CONFIG, "models.skill_tests", {}) if workflow_cli_common else {}
+BAILIAN_CONFIG = workflow_cli_common.get_config_value(FRAMEWORK_CONFIG, "providers.bailian", {}) if workflow_cli_common else {}
+ANTHROPIC_CONFIG = workflow_cli_common.get_config_value(FRAMEWORK_CONFIG, "providers.anthropic", {}) if workflow_cli_common else {}
+
+MODEL_PROVIDER = os.environ.get("SKILL_TEST_MODEL_PROVIDER", SKILL_TEST_CONFIG.get("provider", "bailian")).strip().lower()
+BAILIAN_BASE_URL = os.environ.get("DASHSCOPE_API_BASE", BAILIAN_CONFIG.get("base_url", "https://dashscope.aliyuncs.com/compatible-mode/v1")).rstrip("/")
+BAILIAN_API_KEY = os.environ.get(BAILIAN_CONFIG.get("api_key_env", "DASHSCOPE_API_KEY"), "")
+ANTHROPIC_BASE_URL = os.environ.get("ANTHROPIC_BASE_URL", ANTHROPIC_CONFIG.get("base_url", "https://api.anthropic.com")).rstrip("/")
+ANTHROPIC_API_KEY = os.environ.get(ANTHROPIC_CONFIG.get("api_key_env", "ANTHROPIC_AUTH_TOKEN")) or os.environ.get(ANTHROPIC_CONFIG.get("fallback_api_key_env", "ANTHROPIC_API_KEY"), "")
+MODEL = os.environ.get("SKILL_TEST_MODEL") or ("claude-sonnet-4-6" if MODEL_PROVIDER == "anthropic" else os.environ.get("MEMORY_SEARCH_LLM_MODEL") or SKILL_TEST_CONFIG.get("model") or "qwen-flash")
 
 # ── Layer 1 测试文件列表（v3.1 更新）────────────────────────────────────────
 LAYER1_FILES = [
     # 原有 skills
     "test_complexity_assess.py",
+    "test_context_probe_tool.py",
+    "test_prompt_policy.py",
     "test_tdd_cycle.py",
     "test_diagnose_bug.py",
     "test_memory_update.py",
+    "test_doc_template_tool.py",
+    "test_memory_conflicts_tool.py",
+    "test_memory_search_tool.py",
+    "test_memory_usage_tool.py",
     "test_validate_output.py",
+    "test_framework_health_tool.py",
+    "test_review_cockpit_tool.py",
+    "test_dev_sdd_dashboard_tool.py",
+    "test_model_behavior_tool.py",
     # 原有 hooks
     "test_hook_network_guard.py",
     "test_hook_post_green.py",
@@ -91,7 +139,41 @@ ROUTING_SYSTEM = """
 """.strip()
 
 
-def call_model(user_message, system="", max_tokens=600, retries=2):
+def call_bailian_model(user_message, system="", max_tokens=600, retries=2):
+    messages = []
+    if system:
+        messages.append({"role": "system", "content": system})
+    messages.append({"role": "user", "content": user_message})
+    payload = {"model": MODEL, "messages": messages, "max_tokens": max_tokens}
+    for attempt in range(retries + 1):
+        try:
+            data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+            req = urllib.request.Request(
+                f"{BAILIAN_BASE_URL}/chat/completions",
+                data=data,
+                headers={
+                    "Content-Type": "application/json",
+                    "Authorization": f"Bearer {BAILIAN_API_KEY}",
+                },
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=60) as resp:
+                result = json.loads(resp.read())
+                return result["choices"][0]["message"]["content"]
+        except urllib.error.HTTPError as e:
+            body = e.read().decode(errors="replace")
+            if attempt < retries and e.code in (429, 500, 502, 503, 504):
+                time.sleep(5 * (attempt + 1))
+                continue
+            raise RuntimeError(f"Bailian API {e.code}: {body[:150]}") from e
+        except Exception:
+            if attempt < retries:
+                time.sleep(3)
+                continue
+            raise
+
+
+def call_anthropic_model(user_message, system="", max_tokens=600, retries=2):
     payload = {
         "model": MODEL,
         "max_tokens": max_tokens,
@@ -103,10 +185,10 @@ def call_model(user_message, system="", max_tokens=600, retries=2):
         try:
             data = json.dumps(payload).encode()
             req = urllib.request.Request(
-                API_URL, data=data,
+                f"{ANTHROPIC_BASE_URL}/v1/messages", data=data,
                 headers={
                     "Content-Type": "application/json",
-                    "x-api-key": _API_KEY,
+                    "x-api-key": ANTHROPIC_API_KEY,
                     "anthropic-version": "2023-06-01",
                 },
                 method="POST",
@@ -125,6 +207,14 @@ def call_model(user_message, system="", max_tokens=600, retries=2):
                 time.sleep(3)
                 continue
             raise
+
+
+def call_model(user_message, system="", max_tokens=600, retries=2):
+    if MODEL_PROVIDER == "anthropic":
+        return call_anthropic_model(user_message, system=system, max_tokens=max_tokens, retries=retries)
+    if MODEL_PROVIDER == "bailian":
+        return call_bailian_model(user_message, system=system, max_tokens=max_tokens, retries=retries)
+    raise RuntimeError(f"unsupported SKILL_TEST_MODEL_PROVIDER: {MODEL_PROVIDER}")
 
 
 def judge(response, criterion):
@@ -283,6 +373,8 @@ def main():
     print("=" * 56)
     print("  DEV SDD Framework — Skill Tests v3.1")
     print(f"  Layer: {args.layer}  |  {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    if args.layer >= 2:
+        print(f"  Model: {MODEL_PROVIDER}/{MODEL}")
     if args.skill:
         print(f"  Filter: {args.skill}")
     print("=" * 56)

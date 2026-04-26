@@ -78,8 +78,14 @@ dev-sdd-framework/
 │   ├── candidates/               # Meta-Skill Loop 候选池
 │   └── skill-changelog.md        # 规则变更历史
 │
+├── docs/templates/               # 文档模板库（doc-template）
+│
 ├── projects/                     # 各项目独立目录（不纳入框架 git）
 │   └── _template/                # 新项目模板
+│
+├── tools/                        # 面向人的本地入口（可双击脚本）
+│   ├── dev-sdd-dashboard.sh      # 生成并打开 DEV SDD Dashboard
+│   └── dev-sdd-dashboard.desktop # Linux 桌面入口
 │
 └── skill-tests/                  # 框架自身的三层验证测试
     ├── cases/                    # Layer 1：文档结构测试（无 API）
@@ -157,10 +163,78 @@ Meta-Skill Loop 候选 (memory/candidates/)
 python3 .claude/tools/plan-tracker/tracker.py status     # 查看项目进度
 python3 .claude/tools/start-work/run.py [name] --json    # /DEV_SDD:start-work 的辅助汇总 CLI
 python3 .claude/tools/skill-tracker/tracker.py candidates  # 查看待审核候选
+python3 .claude/tools/framework-health/run.py --json      # 汇总计划、候选、记忆和上下文健康信号
+python3 .claude/tools/dev-sdd-dashboard/run.py --html --json # 生成一键可视化 Dashboard
+python3 .claude/tools/doc-template/run.py classify "写模块验证报告" --json # 识别文档模板
 bash .claude/hooks/verify-rules/check.sh                 # 每日健康检查
 ```
 
 推荐把 `/DEV_SDD:start-work` 作为每次开始/恢复工作的统一入口；该命令可借助 `start-work/run.py` 输出 `{status,message,data}` 结构化摘要（上下文文件、session/handoff、模式、计划进度、next_action）。`/project:*` 命令继续承担项目创建、切换、验证与记忆管理等管理职责。
+
+### 一键可视化 Dashboard
+
+定期查看 DEV SDD 当前状态：
+
+```bash
+python3 .claude/tools/dev-sdd-dashboard/run.py --html --json
+```
+
+输出位置：
+
+- HTML 仪表盘：`docs/reports/dev-sdd-dashboard.html`
+- 运行历史：`.cache/dev_sdd/dashboard_history.jsonl`
+- 启动日志：`.cache/dev_sdd/dashboard-launch.log`
+
+双击运行：
+
+- Linux / 文件管理器：双击 `tools/dev-sdd-dashboard.sh`
+- 支持 `.desktop` 的桌面环境：双击 `tools/dev-sdd-dashboard.desktop`
+
+若系统阻止双击执行，先运行一次：
+
+```bash
+chmod +x tools/dev-sdd-dashboard.sh tools/dev-sdd-dashboard.desktop
+```
+
+人工确认入口：
+
+```bash
+python3 .claude/tools/dev-sdd-dashboard/run.py interactive
+```
+
+交互命令：`list`、`detail <n>`、`command <n>`、`quit`。
+
+### 文档模板 Doc Template
+
+当需要创建分析、审查、规则、状态或模块验证文档时，先识别模板：
+
+```bash
+python3 .claude/tools/doc-template/run.py classify "从 CLI、上游输入、下游输出验证 runtime 模块" --json
+```
+
+生成模板骨架（默认只输出，不写文件）：
+
+```bash
+python3 .claude/tools/doc-template/run.py scaffold module-validation-report --project agentplatform --module runtime --json
+```
+
+写入文件时必须显式加 `--write`：
+
+```bash
+python3 .claude/tools/doc-template/run.py scaffold module-validation-report --project agentplatform --module runtime --write --json
+```
+
+写完后校验必填章节：
+
+```bash
+python3 .claude/tools/doc-template/run.py validate projects/agentplatform/docs/sub_docs/validation/runtime-validation-report.md --template module-validation-report --json
+```
+
+模板位于 `docs/templates/`：`problem-analysis`、`architecture-overview`、`project-status-review`、`module-validation-report`、`decision-record`、`implementation-brief`、`rule-guide`、`review-report`。
+
+`docs/sub_docs/`、`projects/_template/docs/sub_docs/` 和项目 `docs/sub_docs/` 使用统一目录：`analysis/`、`architecture/`、`bug/`、`decisions/`、`feature/`、`reports/`、`rules/`、`validation/`。
+
+文档正文默认尽可能使用中文；专业术语、API 名称、代码标识符、命令、文件路径、协议字段和英文专有名词保持原文。
 
 ---
 

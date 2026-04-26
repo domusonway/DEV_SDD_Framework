@@ -98,6 +98,34 @@ updated_at: YYYY-MM-DD HH:MM
 
 若经验具有跨项目复用潜力但验证不足（<3 项目），则先写入 `memory/candidates/`，等待人工审核或后续项目验证。
 
+### Step 6: 记录记忆使用效果（新增）
+
+当某条项目/领域/框架记忆在本轮任务中被加载或应用时，使用 memory-usage 工具记录效果：
+
+```bash
+python3 .claude/tools/memory-usage/run.py record <MEMORY_ID> \
+  --project <PROJECT> \
+  --source framework|project|domain|candidate \
+  --task "<任务摘要>" \
+  --outcome loaded|applied|helped|neutral|misled|stale \
+  --note "<一句话证据>"
+```
+
+效果统计：
+
+```bash
+python3 .claude/tools/memory-usage/run.py summary --project <PROJECT> --json
+```
+
+剪枝建议与废弃记录：
+
+```bash
+python3 .claude/tools/memory-usage/run.py prune --project <PROJECT> --json
+python3 .claude/tools/memory-usage/run.py deprecate <MEMORY_ID> --project <PROJECT> --reason "<原因>" --replacement "<替代记忆，可选>"
+```
+
+用途：长期判断哪些记忆真正帮助开发，哪些造成误导或过期，供后续 pruning / deprecate 使用。
+
 ---
 
 ## 精简原则

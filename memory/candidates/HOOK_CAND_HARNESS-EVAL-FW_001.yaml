@@ -19,10 +19,10 @@ proposed_diff: |
   - `.claude/hooks/session-snapshot/HOOK.md`: document that the project-root invocation is authoritative until the helper supports explicit project selection.
 
   This candidate captures a framework-level reliability issue exposed while finishing a full 9-module project, where path-sensitive helpers made post-green and session bookkeeping non-deterministic.
-confidence: medium
+confidence: low
 validated_projects:
   - HarnessEvaluationFramework
-status: pending_review
+status: deferred
 auto_attach: false
 auto_attach_triggered_projects: []
 auto_attach_issues: []
@@ -30,3 +30,7 @@ created: 2026-04-09
 domain: agent_workflow
 secondary_target: .claude/hooks/session-snapshot/write.py
 failure_count: 1
+defer_reason: single-project evidence after confidence consistency check; wait for another validation
+
+review_history:
+  - 2026-04-26: deferred - single-project evidence after confidence consistency check; wait for another validation

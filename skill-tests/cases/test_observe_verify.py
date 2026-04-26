@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 """测试 observe-verify SKILL 文档结构完整性"""
 from pathlib import Path
 import subprocess, sys
 
-SKILL_PATH = Path(__file__).parent.parent.parent / ".claude/skills/observe-verify/SKILL.md"
-CHECK_IMPL = Path(__file__).parent.parent.parent / ".claude/hooks/observe-verify/check_impl.py"
-CHECK_CONTRACT = Path(__file__).parent.parent.parent / ".claude/hooks/observe-verify/check_contract.py"
+FRAMEWORK_ROOT = Path(__file__).resolve().parent.parent.parent
+SKILL_PATH = FRAMEWORK_ROOT / ".claude/skills/observe-verify/SKILL.md"
+CHECK_IMPL = FRAMEWORK_ROOT / ".claude/hooks/observe-verify/check_impl.py"
+CHECK_CONTRACT = FRAMEWORK_ROOT / ".claude/hooks/observe-verify/check_contract.py"
 
 
 def test_skill_exists():

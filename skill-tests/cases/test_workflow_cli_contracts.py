@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 """
 skill-tests/cases/test_workflow_cli_contracts.py
 Layer 1: Workflow helper CLI shared contract tests
@@ -18,7 +20,7 @@ import tempfile
 from pathlib import Path
 
 
-FRAMEWORK_ROOT = Path(__file__).parent.parent.parent
+FRAMEWORK_ROOT = Path(__file__).resolve().parent.parent.parent
 PROJECTS_DIR = FRAMEWORK_ROOT / "projects"
 
 INIT_TOOL = FRAMEWORK_ROOT / ".claude/tools/init/run.py"

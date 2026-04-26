@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=DEV SDD Dashboard
+Comment=Generate and open the DEV SDD Framework dashboard
+Exec=bash -lc 'cd "$(dirname "%k")/.." && ./tools/dev-sdd-dashboard.sh'
+Path=.
+Terminal=false
+Categories=Development;

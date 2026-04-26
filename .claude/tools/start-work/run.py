@@ -34,6 +34,26 @@ assert COMMON_SPEC and COMMON_SPEC.loader
 workflow_cli_common = importlib.util.module_from_spec(COMMON_SPEC)
 COMMON_SPEC.loader.exec_module(workflow_cli_common)
 
+PROMPT_POLICY_SPEC = importlib.util.spec_from_file_location("prompt_policy", TOOLS_ROOT / "prompt-policy" / "run.py")
+assert PROMPT_POLICY_SPEC and PROMPT_POLICY_SPEC.loader
+prompt_policy = importlib.util.module_from_spec(PROMPT_POLICY_SPEC)
+PROMPT_POLICY_SPEC.loader.exec_module(prompt_policy)
+
+CONTEXT_PROBE_SPEC = importlib.util.spec_from_file_location("context_probe", TOOLS_ROOT / "context-probe" / "run.py")
+assert CONTEXT_PROBE_SPEC and CONTEXT_PROBE_SPEC.loader
+context_probe = importlib.util.module_from_spec(CONTEXT_PROBE_SPEC)
+CONTEXT_PROBE_SPEC.loader.exec_module(context_probe)
+
+MEMORY_SEARCH_SPEC = importlib.util.spec_from_file_location("memory_search", TOOLS_ROOT / "memory-search" / "run.py")
+assert MEMORY_SEARCH_SPEC and MEMORY_SEARCH_SPEC.loader
+memory_search = importlib.util.module_from_spec(MEMORY_SEARCH_SPEC)
+MEMORY_SEARCH_SPEC.loader.exec_module(memory_search)
+
+DOC_TEMPLATE_SPEC = importlib.util.spec_from_file_location("doc_template", TOOLS_ROOT / "doc-template" / "run.py")
+assert DOC_TEMPLATE_SPEC and DOC_TEMPLATE_SPEC.loader
+doc_template = importlib.util.module_from_spec(DOC_TEMPLATE_SPEC)
+DOC_TEMPLATE_SPEC.loader.exec_module(doc_template)
+
 
 STATUS_OK = "ok"
 STATUS_WARNING = "warning"
@@ -67,6 +87,19 @@ def out(payload: dict[str, Any], as_json: bool) -> None:
         env_status = env_info.get('status', 'unknown')
         env_icon = {"not_found": "📁", "exists_not_activated": "🔧", "activated": "🟢"}.get(env_status, "❓")
         print(f"环境: {env_icon} {env_info.get('detail', '')}")
+    prompt_info = data.get("prompt_policy") or {}
+    if prompt_info.get("matched"):
+        print(f"提示词策略: {', '.join(prompt_info.get('matched', []))}")
+    context_info = data.get("context_probe") or {}
+    if context_info.get("matched_dimensions"):
+        print(f"上下文探测: {', '.join(context_info.get('matched_dimensions', []))}")
+    memory_info = data.get("memory_search") or {}
+    if memory_info.get("hits"):
+        print(f"记忆命中: {len(memory_info.get('hits', []))} 条")
+    doc_info = data.get("doc_template") or {}
+    if doc_info.get("matched"):
+        print(f"文档模板: {doc_info.get('template_id')} -> {doc_info.get('suggested_path')}")
+        print(f"文档语言: 默认中文，专业术语/API/代码/命令/路径保留原文 ({doc_info.get('language_policy')})")
     print(f"下一步: {data.get('next_action', '请先补齐项目上下文')}")
     print("[/START-WORK]")
 
@@ -123,6 +156,54 @@ class PlanResult:
     next_action: str
     progress: dict[str, Any]
     nodes: list[dict[str, str]]
+    parallel: dict[str, Any]
+
+
+def _module_key(module: dict[str, Any]) -> str:
+    return str(module.get("name") or module.get("id") or "").strip()
+
+
+def _completed_keys(modules: list[dict[str, Any]]) -> set[str]:
+    completed: set[str] = set()
+    for module in modules:
+        if module.get("state") == "completed":
+            key = _module_key(module)
+            if key:
+                completed.add(key)
+            module_id = str(module.get("id") or "").strip()
+            if module_id:
+                completed.add(module_id)
+    return completed
+
+
+def _deps_ready(module: dict[str, Any], completed: set[str]) -> bool:
+    deps = module.get("deps") or module.get("blocked_by") or []
+    return all(str(dep) in completed for dep in deps)
+
+
+def _task_summary(module: dict[str, Any]) -> dict[str, Any]:
+    execution = module.get("execution") or {}
+    return {
+        "id": str(module.get("id") or ""),
+        "name": str(module.get("name") or ""),
+        "state": str(module.get("state") or "pending"),
+        "group": str(execution.get("group") or module.get("group") or ""),
+        "relation_type": str(module.get("relation_type") or ""),
+        "deps": list(module.get("deps") or module.get("blocked_by") or []),
+        "parallel_with": list(module.get("parallel_with") or execution.get("parallel_with") or []),
+        "handoff_artifacts": list(execution.get("handoff_artifacts") or module.get("handoff_artifacts") or []),
+    }
+
+
+def _ready_tasks_from_modules(modules: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    completed = _completed_keys(modules)
+    ready: list[dict[str, Any]] = []
+    for module in modules:
+        if module.get("state", "pending") not in {"pending", "in_progress"}:
+            continue
+        if _deps_ready(module, completed):
+            ready.append(_task_summary(module))
+    return ready
 
 
 def _compute_next_action_from_batches(plan: dict[str, Any]) -> str:
@@ -146,6 +227,7 @@ def _load_plan_json(path: Path) -> PlanResult | None:
             next_action="修复 docs/plan.json 的 JSON 格式错误",
             progress={"completed": 0, "total": 0, "percent": 0},
             nodes=[],
+            parallel={"ready_tasks": [], "ready_count": 0, "recommended": None},
         )
 
     all_modules = [m for b in plan.get("batches", []) for m in b.get("modules", [])]
@@ -165,6 +247,7 @@ def _load_plan_json(path: Path) -> PlanResult | None:
             "name": str(module.get("name") or ""),
             "state": str(module.get("state") or "pending"),
         })
+    ready_tasks = _ready_tasks_from_modules(all_modules)
     return PlanResult(
         source="plan.json",
         summary=f"{completed}/{total} 完成（{percent}%）",
@@ -177,6 +260,11 @@ def _load_plan_json(path: Path) -> PlanResult | None:
             "percent": percent,
         },
         nodes=nodes,
+        parallel={
+            "ready_tasks": ready_tasks,
+            "ready_count": len(ready_tasks),
+            "recommended": ready_tasks[0] if ready_tasks else None,
+        },
     )
 
 
@@ -197,6 +285,7 @@ def _load_plan_markdown(path: Path) -> PlanResult | None:
             next_action=f"检查 {path.name} 文件权限或编码",
             progress={"completed": 0, "pending": 0, "in_progress": 0, "total": 0, "percent": 0},
             nodes=[],
+            parallel={"ready_tasks": [], "ready_count": 0, "recommended": None},
         )
 
     completed_lines = re.findall(r"^-\s*\[[xX]\]\s+.+$", content, re.MULTILINE)
@@ -224,6 +313,7 @@ def _load_plan_markdown(path: Path) -> PlanResult | None:
             "percent": percent,
         },
         nodes=[],
+        parallel={"ready_tasks": [], "ready_count": 0, "recommended": None},
     )
 
 
@@ -249,6 +339,7 @@ def detect_plan(project_docs: Path) -> PlanResult:
         next_action="先补齐 BRIEF.md 或 CONTEXT.md + SPEC.md + 计划文件",
         progress={"completed": 0, "in_progress": 0, "pending": 0, "total": 0, "percent": 0},
         nodes=[],
+        parallel={"ready_tasks": [], "ready_count": 0, "recommended": None},
     )
 
 
@@ -357,7 +448,7 @@ def parse_latest_session(session_dir: Path) -> dict[str, Any] | None:
     }
 
 
-def detect_session(project_root: Path, plan_next: str, plan_source: str) -> tuple[dict[str, Any], str, str]:
+def detect_session(project_root: Path, plan_next: str, plan_source: str, plan_progress: dict[str, Any]) -> tuple[dict[str, Any], str, str]:
     handoff_path = project_root / "HANDOFF.json"
     handoff = parse_handoff(handoff_path)
     latest_session = parse_latest_session(project_root / "memory" / "sessions")
@@ -383,6 +474,16 @@ def detect_session(project_root: Path, plan_next: str, plan_source: str) -> tupl
             },
             "latest_session": latest_session,
         }, handoff_next or plan_next, "HANDOFF.json" if handoff_next else plan_source)
+
+    plan_is_complete = bool(plan_progress.get("total")) and plan_progress.get("completed") == plan_progress.get("total")
+    if latest_session and latest_session.get("status") == "in-progress" and plan_is_complete:
+        return ({
+            "state": "NEW SESSION",
+            "handoff_exists": False,
+            "latest_session": latest_session,
+            "stale_session_ignored": True,
+            "stale_reason": "plan_complete",
+        }, plan_next, plan_source)
 
     if latest_session and latest_session.get("status") == "in-progress":
         return ({
@@ -414,10 +515,88 @@ def build_context_files(root: Path, project_root: Path | None, project: str) -> 
     }
 
 
-def run(project_arg: str | None) -> dict[str, Any]:
+def infer_module_from_task(task_text: str, project_root: Path | None = None) -> str | None:
+    if not task_text:
+        return None
+    patterns = [
+        r"([A-Za-z0-9_./-]+)\s*模块",
+        r"module\s+([A-Za-z0-9_./-]+)",
+        r"--module\s+([A-Za-z0-9_./-]+)",
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, task_text, re.IGNORECASE)
+        if match:
+            value = match.group(1).strip("`'\" ，,。")
+            if value and value not in {"单", "一个", "某个"}:
+                return value
+    if project_root is not None:
+        modules_root = project_root / "modules"
+        if modules_root.exists():
+            lower = task_text.lower()
+            for path in sorted(modules_root.glob("**/__init__.py")):
+                module_name = path.parent.name
+                if module_name.lower() in lower:
+                    return module_name
+    return None
+
+
+def build_doc_template_signal(task_text: str, project: str | None, project_root: Path | None, prompt_policy_result: dict[str, Any]) -> dict[str, Any]:
+    if not task_text or "doc_creation" not in (prompt_policy_result.get("matched") or []):
+        return {"matched": False}
+    classified = doc_template.classify_text(task_text)
+    template_id = classified.get("template_id")
+    module = infer_module_from_task(task_text, project_root)
+    topic = module or doc_template.slugify(task_text[:40])
+    suggested_path = ""
+    language_policy = "zh_cn_default_preserve_terms"
+    try:
+        templates = doc_template.load_templates()
+        if template_id in templates:
+            language_policy = str(templates[template_id].get("meta", {}).get("language_policy") or language_policy)
+            suggested_path, _ = doc_template.render_template(templates[template_id], project, module, topic, None)
+    except Exception as exc:
+        return {
+            "matched": True,
+            "template_id": template_id,
+            "confidence": classified.get("confidence"),
+            "suggested_path": "",
+            "language_policy": language_policy,
+            "validation_required": True,
+            "error": str(exc),
+            "doc_template_block": "",
+        }
+    block = (
+        "[DOC-TEMPLATE]\n"
+        f"intent: {template_id}\n"
+        f"template_id: {template_id}\n"
+        f"confidence: {classified.get('confidence')}\n"
+        f"target_path: {suggested_path}\n"
+        "language: zh-CN default, preserve technical terms\n"
+        "validation_required: true\n"
+        "[/DOC-TEMPLATE]"
+    )
+    return {
+        "matched": True,
+        "template_id": template_id,
+        "confidence": classified.get("confidence"),
+        "matched_keywords": classified.get("matched_keywords", []),
+        "suggested_path": suggested_path,
+        "language_policy": language_policy,
+        "module": module,
+        "validation_required": True,
+        "validate_command": f"python3 .claude/tools/doc-template/run.py validate {suggested_path} --template {template_id} --json" if suggested_path else "",
+        "doc_template_block": block,
+    }
+
+
+def run(project_arg: str | None, task_text: str = "") -> dict[str, Any]:
     active_project = detect_active_project(ROOT)
     project_root, target_label = workflow_cli_common.resolve_target_project(project_arg, ROOT)
     project = target_label or project_arg or active_project
+    prompt_policy_result = prompt_policy.classify(task_text or "") if task_text else {"matched": [], "injected": []}
+    context_probe_result = context_probe.classify(task_text or "") if task_text else {"matched_dimensions": [], "auto_load": ["仅 CRITICAL"], "skipped": [], "candidate_domains": []}
+    memory_search_result = memory_search.search(task_text or "", project=project_arg if project_arg else None, top_k=5) if task_text else {"query": "", "tokens": [], "project": project, "hits": []}
+    doc_template_result = build_doc_template_signal(task_text or "", project, project_root, prompt_policy_result)
     if not project:
         return {
             "status": STATUS_WARNING,
@@ -425,6 +604,10 @@ def run(project_arg: str | None) -> dict[str, Any]:
             "data": {
                 "project": None,
                 "context_files": {"framework": ["memory/INDEX.md", "AGENTS.md"], "project": []},
+                "prompt_policy": prompt_policy_result,
+                "context_probe": context_probe_result,
+                "memory_search": memory_search_result,
+                "doc_template": doc_template_result,
                 "session": {"state": "NEW SESSION", "handoff_exists": False, "latest_session": None},
                 "mode": {"detected": "unknown", "source": "missing_project"},
                 "plan": {
@@ -449,6 +632,10 @@ def run(project_arg: str | None) -> dict[str, Any]:
                 "project_path": rel_path(project_root or (ROOT / "projects" / project), ROOT),
                 "active_project": active_project,
                 "context_files": context_files,
+                "prompt_policy": prompt_policy_result,
+                "context_probe": context_probe_result,
+                "memory_search": memory_search_result,
+                "doc_template": doc_template_result,
                 "session": {"state": "NEW SESSION", "handoff_exists": False, "latest_session": None},
                 "mode": {"detected": "unknown", "source": "missing_project_dir"},
                 "plan": {
@@ -464,7 +651,7 @@ def run(project_arg: str | None) -> dict[str, Any]:
     mode = detect_mode(project_root / "CLAUDE.md")
     plan = detect_plan(project_root / "docs")
     reconciliation = reconcile_todo(project_root, plan)
-    session, next_action, next_action_source = detect_session(project_root, plan.next_action, plan.source)
+    session, next_action, next_action_source = detect_session(project_root, plan.next_action, plan.source, plan.progress)
 
     status = STATUS_OK
     if mode.get("detected") == "unknown" or plan.source == "none":
@@ -481,6 +668,10 @@ def run(project_arg: str | None) -> dict[str, Any]:
                 "project_path": rel_path(project_root, ROOT),
                 "active_project": active_project,
                 "context_files": context_files,
+                "prompt_policy": prompt_policy_result,
+                "context_probe": context_probe_result,
+                "memory_search": memory_search_result,
+                "doc_template": doc_template_result,
                 "session": session,
             "mode": mode,
             "plan": {
@@ -489,6 +680,7 @@ def run(project_arg: str | None) -> dict[str, Any]:
                 "progress": plan.progress,
                 "next_action": plan.next_action,
             },
+            "parallel": plan.parallel,
             "reconciliation": reconciliation,
             "next_action": next_action,
             "next_action_source": next_action_source,
@@ -516,9 +708,10 @@ def main() -> None:
     )
     parser.add_argument("project", nargs="?", help="可选：显式覆盖目标项目名或项目路径")
     parser.add_argument("--json", action="store_true", help="输出机器可解析 JSON")
+    parser.add_argument("--task", default="", help="可选：当前用户任务描述，用于 prompt-policy 分类")
     args = parser.parse_args()
 
-    result = run(args.project)
+    result = run(args.project, task_text=args.task)
     out(result, args.json)
 
     if result.get("status") == STATUS_ERROR:

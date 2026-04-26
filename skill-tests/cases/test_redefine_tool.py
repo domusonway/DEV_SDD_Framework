@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 """
 skill-tests/cases/test_redefine_tool.py
 Layer 1: DEV_SDD:REDEFINE helper CLI 合规测试

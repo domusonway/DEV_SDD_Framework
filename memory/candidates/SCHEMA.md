@@ -55,7 +55,7 @@ validated_projects:
   - <项目名1>
   - <项目名2>
 
-status: pending_review | approved | rejected | promoted
+status: pending_review | approved | rejected | promoted | deferred | archived | project_only
 
 # ── auto_attach 字段（TASK-ANN-01 新增）──────────────────────────────────────
 auto_attach: false
@@ -82,8 +82,32 @@ domain: <领域标签，用于 context-probe 匹配>
 secondary_target: <主目标之外还需修改的文件>
 failure_count: <在 source_project 中出现的次数>
 promoted_at: YYYY-MM-DD
+promote_strategy: direct_append_marked | json_edit | auto_sync | create_new
+promoted_target: <实际写入或需要人工编辑的目标文件>
+rollback_marker_begin: <direct_append_marked 的开始标记>
+rollback_marker_end: <direct_append_marked 的结束标记>
 reject_reason: <拒绝原因>
+defer_reason: <暂缓原因>
+archive_reason: <归档原因>
+project_only_reason: <仅项目适用原因>
+review_history:
+  - YYYY-MM-DD: <approve | reject | defer | archive | project_only | promote> - <说明>
 ```
+
+---
+
+## promote 回滚边界
+
+`direct_append` 类型提升必须写入结构化标记，而不是裸追加：
+
+```markdown
+<!-- DEV_SDD:PROMOTE:BEGIN id=<candidate_id> date=<YYYY-MM-DD> -->
+<proposed_diff>
+<!-- DEV_SDD:PROMOTE:END id=<candidate_id> -->
+```
+
+回滚时只允许删除该标记块，不允许使用 `git reset --hard` 或覆盖整个目标文件。
+执行 `skill-tracker rollback-info <id>` 可查看目标文件和标记范围。
 
 ---
 

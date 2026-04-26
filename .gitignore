@@ -20,6 +20,11 @@ build/
 # 测试报告（本地生成，不提交）
 skill-tests/reports/*.json
 skill-tests/reports/*.html
+docs/reports/*.json
+docs/reports/*.html
+
+# 本地向量索引 / 缓存
+.cache/
 
 # 编辑器
 .vscode/

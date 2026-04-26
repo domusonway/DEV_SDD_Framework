@@ -1,3 +1,5 @@
 # bug
 
-按任务记录 bug 的根因分析、修复步骤与回归验证细节。
+Bug diagnosis, fix notes and regression validation.
+
+Template: `problem-analysis`.

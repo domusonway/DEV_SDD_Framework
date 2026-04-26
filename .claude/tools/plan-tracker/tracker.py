@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 """
 plan-tracker/tracker.py
 结构化进度追踪工具，替代纯 markdown PLAN.md 的手动维护
@@ -41,7 +43,7 @@ CHECK_IMPL_PATH = Path(__file__).resolve().parents[2] / "hooks" / "observe-verif
 def find_project_root() -> Path:
     current = Path.cwd()
     for parent in [current] + list(current.parents):
-        if (parent / "docs" / "plan.json").exists() or (parent / "CLAUDE.md").exists():
+        if (parent / "docs" / "plan.json").exists() or (parent / "CLAUDE.md").exists() or (parent / "AGENTS.md").exists():
             return parent
     return current
 
@@ -50,13 +52,13 @@ def get_project_name(root: Path) -> str:
     if (root / "docs" / "plan.json").exists():
         return root.name
 
-    claude_md = root / "CLAUDE.md"
-    if not claude_md.exists():
-        return os.environ.get("PROJECT", "unknown")
-    content = claude_md.read_text(encoding="utf-8")
-    match = re.search(r"^PROJECT:\s*(.+)$", content, re.MULTILINE)
-    if match:
-        return match.group(1).strip()
+    for context_file in [root / "CLAUDE.md", root / "AGENTS.md"]:
+        if not context_file.exists():
+            continue
+        content = context_file.read_text(encoding="utf-8")
+        match = re.search(r"^PROJECT:\s*(.+)$", content, re.MULTILINE)
+        if match:
+            return match.group(1).strip()
     return os.environ.get("PROJECT", "unknown")
 
 
@@ -87,6 +89,118 @@ def collect_plan_modules(plan: dict[str, Any]) -> list[dict[str, Any]]:
         raise ValueError("plan.json 使用旧 schema（phases/tasks）；请迁移为 batches/modules 后再运行 plan-tracker")
 
     raise ValueError("plan.json 缺少 batches/modules 结构；请使用 INIT/REDEFINE 生成标准计划")
+
+
+def _module_key(module: dict[str, Any]) -> str:
+    return str(module.get("name") or module.get("id") or "").strip()
+
+
+def _module_display(module: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": str(module.get("id") or ""),
+        "name": str(module.get("name") or ""),
+        "state": str(module.get("state") or "pending"),
+        "group": str(module.get("execution", {}).get("group") or module.get("group") or ""),
+        "relation_type": str(module.get("relation_type") or ""),
+        "owner": str(module.get("owner") or module.get("execution", {}).get("owner") or ""),
+        "deps": list(module.get("deps") or module.get("blocked_by") or []),
+        "parallel_with": list(module.get("parallel_with") or module.get("execution", {}).get("parallel_with") or []),
+        "handoff_artifacts": list(module.get("execution", {}).get("handoff_artifacts") or module.get("handoff_artifacts") or []),
+    }
+
+
+def _completed_keys(modules: list[dict[str, Any]]) -> set[str]:
+    completed: set[str] = set()
+    for module in modules:
+        if module.get("state") == "completed":
+            key = _module_key(module)
+            if key:
+                completed.add(key)
+            module_id = str(module.get("id") or "").strip()
+            if module_id:
+                completed.add(module_id)
+    return completed
+
+
+def _deps_ready(module: dict[str, Any], completed: set[str]) -> bool:
+    deps = module.get("deps") or module.get("blocked_by") or []
+    return all(str(dep) in completed for dep in deps)
+
+
+def compute_ready_tasks(plan: dict[str, Any]) -> list[dict[str, Any]]:
+    modules = collect_plan_modules(plan)
+    completed = _completed_keys(modules)
+    ready: list[dict[str, Any]] = []
+    for module in modules:
+        state = module.get("state", "pending")
+        if state not in {"pending", "in_progress"}:
+            continue
+        if _deps_ready(module, completed):
+            ready.append(_module_display(module))
+    return ready
+
+
+def _write_set(module: dict[str, Any]) -> set[str]:
+    explicit = module.get("writes") or module.get("write_paths") or []
+    shared = module.get("shared_artifacts") or module.get("associated_items") or []
+    path_hint = [module.get("impl_path") or module.get("path") or ""]
+    items = list(explicit) + list(shared) + [p for p in path_hint if p]
+    return {str(item) for item in items if str(item).strip()}
+
+
+def compute_conflicts(plan: dict[str, Any]) -> list[dict[str, Any]]:
+    modules = collect_plan_modules(plan)
+    ready_keys = {_module_key(task) for task in compute_ready_tasks(plan)}
+    candidates = [m for m in modules if _module_key(m) in ready_keys]
+    conflicts: list[dict[str, Any]] = []
+    for idx, left in enumerate(candidates):
+        left_writes = _write_set(left)
+        if not left_writes:
+            continue
+        for right in candidates[idx + 1:]:
+            overlap = sorted(left_writes & _write_set(right))
+            if overlap:
+                conflicts.append({
+                    "tasks": [_module_key(left), _module_key(right)],
+                    "shared_artifacts": overlap,
+                    "risk": "write_conflict",
+                })
+    return conflicts
+
+
+def compute_critical_path(plan: dict[str, Any]) -> list[dict[str, Any]]:
+    modules = collect_plan_modules(plan)
+    by_key = {_module_key(module): module for module in modules if _module_key(module)}
+    by_id = {str(module.get("id")): module for module in modules if str(module.get("id") or "").strip()}
+    memo: dict[str, int] = {}
+
+    def depth_for(key: str, visiting: set[str] | None = None) -> int:
+        if key in memo:
+            return memo[key]
+        visiting = visiting or set()
+        if key in visiting:
+            return 0
+        module = by_key.get(key) or by_id.get(key)
+        if not module:
+            return 0
+        deps = module.get("deps") or module.get("blocked_by") or []
+        if not deps:
+            memo[key] = 1
+            return 1
+        visiting.add(key)
+        memo[key] = 1 + max(depth_for(str(dep), visiting) for dep in deps)
+        visiting.discard(key)
+        return memo[key]
+
+    rows = []
+    for module in modules:
+        key = _module_key(module)
+        if not key:
+            continue
+        display = _module_display(module)
+        display["critical_depth"] = depth_for(key)
+        rows.append(display)
+    return sorted(rows, key=lambda item: (-int(item.get("critical_depth") or 0), item.get("name") or ""))
 
 
 def find_module_entry(plan: dict[str, Any], module_name: str) -> dict[str, Any] | None:
@@ -275,6 +389,122 @@ def cmd_status(args, root, project):
         print()
 
 
+def cmd_next(args, root, project):
+    plan = load_plan(root, project)
+    try:
+        ready = compute_ready_tasks(plan)
+    except ValueError as e:
+        fail_invalid_plan_schema(args, str(e))
+
+    recommended = ready[0] if ready else None
+    message = "无可执行任务" if not recommended else f"推荐任务: {recommended.get('name')}"
+    data = {
+        "project": project,
+        "mode": "parallel" if args.parallel else "single",
+        "recommended": recommended,
+        "ready_tasks": ready if args.parallel else ([recommended] if recommended else []),
+        "ready_count": len(ready),
+    }
+    if args.json:
+        print(json.dumps({"status": "ok", "message": message, "data": data}, ensure_ascii=False, indent=2))
+        return
+    print(f"▶ {message}")
+    if args.parallel and ready:
+        print("可并行任务池:")
+        for task in ready:
+            group = f" [{task.get('group')}]" if task.get("group") else ""
+            print(f"  - {task.get('name')}{group}")
+
+
+def cmd_conflicts(args, root, project):
+    plan = load_plan(root, project)
+    try:
+        conflicts = compute_conflicts(plan)
+    except ValueError as e:
+        fail_invalid_plan_schema(args, str(e))
+    status = "warning" if conflicts else "ok"
+    message = f"发现 {len(conflicts)} 个可并行任务写入冲突" if conflicts else "未发现可并行任务写入冲突"
+    data = {"project": project, "conflicts": conflicts, "conflict_count": len(conflicts)}
+    if args.json:
+        print(json.dumps({"status": status, "message": message, "data": data}, ensure_ascii=False, indent=2))
+        return
+    print(message)
+    for conflict in conflicts:
+        print(f"  - {' <-> '.join(conflict['tasks'])}: {', '.join(conflict['shared_artifacts'])}")
+
+
+def cmd_critical_path(args, root, project):
+    plan = load_plan(root, project)
+    try:
+        rows = compute_critical_path(plan)
+    except ValueError as e:
+        fail_invalid_plan_schema(args, str(e))
+    data = {"project": project, "tasks": rows, "max_depth": rows[0]["critical_depth"] if rows else 0}
+    if args.json:
+        print(json.dumps({"status": "ok", "message": "critical path 分析完成", "data": data}, ensure_ascii=False, indent=2))
+        return
+    print("critical path 分析完成")
+    for row in rows:
+        print(f"  depth={row['critical_depth']}  {row.get('name')}")
+
+
+def cmd_lock(args, root, project):
+    plan = load_plan(root, project)
+    module = find_module_entry(plan, args.module)
+    if module is None:
+        message = f"未找到模块: {args.module}"
+        if args.json:
+            print(json.dumps({"status": "error", "message": message, "data": None}, ensure_ascii=False))
+        else:
+            print(f"❌ {message}")
+        sys.exit(1)
+    existing_lock = module.get("lock") or {}
+    if existing_lock and existing_lock.get("owner") != args.owner and not args.force:
+        message = f"模块已被 {existing_lock.get('owner')} 锁定"
+        if args.json:
+            print(json.dumps({"status": "error", "message": message, "data": {"lock": existing_lock}}, ensure_ascii=False))
+        else:
+            print(f"❌ {message}")
+        sys.exit(1)
+    lock = {
+        "owner": args.owner,
+        "locked_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "reason": args.reason or "parallel_work",
+    }
+    module["lock"] = lock
+    save_plan(root, project, plan)
+    if args.json:
+        print(json.dumps({"status": "ok", "message": f"{args.module} locked", "data": {"module": args.module, "lock": lock}}, ensure_ascii=False))
+    else:
+        print(f"[plan-tracker] 🔒 {args.module} locked by {args.owner}")
+
+
+def cmd_release(args, root, project):
+    plan = load_plan(root, project)
+    module = find_module_entry(plan, args.module)
+    if module is None:
+        message = f"未找到模块: {args.module}"
+        if args.json:
+            print(json.dumps({"status": "error", "message": message, "data": None}, ensure_ascii=False))
+        else:
+            print(f"❌ {message}")
+        sys.exit(1)
+    existing_lock = module.get("lock") or {}
+    if existing_lock and args.owner and existing_lock.get("owner") != args.owner and not args.force:
+        message = f"模块锁属于 {existing_lock.get('owner')}，拒绝释放"
+        if args.json:
+            print(json.dumps({"status": "error", "message": message, "data": {"lock": existing_lock}}, ensure_ascii=False))
+        else:
+            print(f"❌ {message}")
+        sys.exit(1)
+    module.pop("lock", None)
+    save_plan(root, project, plan)
+    if args.json:
+        print(json.dumps({"status": "ok", "message": f"{args.module} released", "data": {"module": args.module}}, ensure_ascii=False))
+    else:
+        print(f"[plan-tracker] 🔓 {args.module} released")
+
+
 def cmd_complete(args, root, project):
     plan = load_plan(root, project)
     try:
@@ -437,19 +667,45 @@ def main():
     parser.add_argument("--json", action="store_true", help="输出机器友好的 JSON")
     subparsers = parser.add_subparsers(dest="cmd")
 
-    subparsers.add_parser("status", help="查看进度")
-    subparsers.add_parser("render", help="重新生成 PLAN.md")
-    subparsers.add_parser("validate", help="验证所有模块已完成")
+    status_p = subparsers.add_parser("status", help="查看进度")
+    status_p.add_argument("--json", action="store_true", default=argparse.SUPPRESS, help="输出机器友好的 JSON")
+    next_p = subparsers.add_parser("next", help="查看下一任务或可并行任务池")
+    next_p.add_argument("--parallel", action="store_true", help="返回所有依赖已满足的可并行任务")
+    next_p.add_argument("--json", action="store_true", default=argparse.SUPPRESS, help="输出机器友好的 JSON")
+    conflicts_p = subparsers.add_parser("conflicts", help="分析可并行任务的共享写入冲突")
+    conflicts_p.add_argument("--json", action="store_true", default=argparse.SUPPRESS, help="输出机器友好的 JSON")
+    critical_p = subparsers.add_parser("critical-path", help="按依赖深度输出 critical path 视图")
+    critical_p.add_argument("--json", action="store_true", default=argparse.SUPPRESS, help="输出机器友好的 JSON")
+    render_p = subparsers.add_parser("render", help="重新生成 PLAN.md")
+    render_p.add_argument("--json", action="store_true", default=argparse.SUPPRESS, help="输出机器友好的 JSON")
+    validate_p = subparsers.add_parser("validate", help="验证所有模块已完成")
+    validate_p.add_argument("--json", action="store_true", default=argparse.SUPPRESS, help="输出机器友好的 JSON")
 
     complete_p = subparsers.add_parser("complete", help="标记模块完成")
     complete_p.add_argument("module", help="模块名")
+    complete_p.add_argument("--json", action="store_true", default=argparse.SUPPRESS, help="输出机器友好的 JSON")
 
     skip_p = subparsers.add_parser("skip", help="标记模块跳过")
     skip_p.add_argument("module", help="模块名")
     skip_p.add_argument("--reason", default="", help="跳过原因")
+    skip_p.add_argument("--json", action="store_true", default=argparse.SUPPRESS, help="输出机器友好的 JSON")
 
     reset_p = subparsers.add_parser("reset", help="重置模块状态")
     reset_p.add_argument("module", help="模块名")
+    reset_p.add_argument("--json", action="store_true", default=argparse.SUPPRESS, help="输出机器友好的 JSON")
+
+    lock_p = subparsers.add_parser("lock", help="锁定模块，避免并行写入冲突")
+    lock_p.add_argument("module", help="模块名")
+    lock_p.add_argument("--owner", required=True, help="锁定 owner/lane/agent 名称")
+    lock_p.add_argument("--reason", default="", help="锁定原因")
+    lock_p.add_argument("--force", action="store_true", help="强制覆盖已有锁")
+    lock_p.add_argument("--json", action="store_true", default=argparse.SUPPRESS, help="输出机器友好的 JSON")
+
+    release_p = subparsers.add_parser("release", help="释放模块锁")
+    release_p.add_argument("module", help="模块名")
+    release_p.add_argument("--owner", default="", help="释放 owner，留空表示不校验")
+    release_p.add_argument("--force", action="store_true", help="强制释放其他 owner 的锁")
+    release_p.add_argument("--json", action="store_true", default=argparse.SUPPRESS, help="输出机器友好的 JSON")
 
     args = parser.parse_args()
     root = find_project_root()
@@ -457,6 +713,11 @@ def main():
 
     dispatch = {
         "status": cmd_status,
+        "next": cmd_next,
+        "conflicts": cmd_conflicts,
+        "critical-path": cmd_critical_path,
+        "lock": cmd_lock,
+        "release": cmd_release,
         "complete": cmd_complete,
         "skip": cmd_skip,
         "validate": cmd_validate,

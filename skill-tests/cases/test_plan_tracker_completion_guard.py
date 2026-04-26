@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 """
 skill-tests/cases/test_plan_tracker_completion_guard.py
 Layer 1: plan-tracker 完成态保护测试
@@ -15,7 +17,7 @@ import tempfile
 from pathlib import Path
 
 
-FRAMEWORK_ROOT = Path(__file__).parent.parent.parent
+FRAMEWORK_ROOT = Path(__file__).resolve().parent.parent.parent
 TRACKER = FRAMEWORK_ROOT / ".claude/tools/plan-tracker/tracker.py"
 
 
@@ -57,6 +59,57 @@ def make_workspace(module_body: str) -> tuple[Path, Path]:
                                 "path": "modules/backend/demo",
                                 "state": "pending",
                             }
+                        ],
+                    }
+                ],
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    return workspace_root, project_root
+
+
+def make_parallel_workspace() -> tuple[Path, Path]:
+    workspace_root = Path(tempfile.mkdtemp(prefix="plan_tracker_parallel_"))
+    project_name = "demo_project"
+    project_root = workspace_root / "projects" / project_name
+    docs_dir = project_root / "docs"
+    docs_dir.mkdir(parents=True, exist_ok=True)
+    (workspace_root / "CLAUDE.md").write_text(
+        f"PROJECT: {project_name}\nPROJECT_PATH: projects/{project_name}\n",
+        encoding="utf-8",
+    )
+    (docs_dir / "plan.json").write_text(
+        json.dumps(
+            {
+                "project": "demo_project",
+                "batches": [
+                    {
+                        "name": "Batch 1",
+                        "modules": [
+                            {"id": "T-001", "name": "shared", "state": "completed"},
+                            {
+                                "id": "T-002",
+                                "name": "lane_a",
+                                "state": "pending",
+                                "deps": ["shared"],
+                                "writes": ["contracts/runtime.json"],
+                            },
+                            {
+                                "id": "T-003",
+                                "name": "lane_b",
+                                "state": "pending",
+                                "deps": ["shared"],
+                                "writes": ["contracts/runtime.json"],
+                            },
+                            {
+                                "id": "T-004",
+                                "name": "merge",
+                                "state": "pending",
+                                "deps": ["lane_a", "lane_b"],
+                            },
                         ],
                     }
                 ],
@@ -124,11 +177,60 @@ def test_validate_rejects_completed_stub_module():
         shutil.rmtree(workspace_root, ignore_errors=True)
 
 
+def test_parallel_next_conflicts_and_critical_path_commands():
+    workspace_root, project_root = make_parallel_workspace()
+    try:
+        next_result = run_tracker(workspace_root, "next", "--parallel", "--json")
+        assert next_result.returncode == 0, next_result.stderr
+        next_payload = json.loads(next_result.stdout)
+        ready_names = {task["name"] for task in next_payload["data"]["ready_tasks"]}
+        assert ready_names == {"lane_a", "lane_b"}, f"ready task pool 错误: {ready_names}"
+
+        conflicts_result = run_tracker(workspace_root, "conflicts", "--json")
+        assert conflicts_result.returncode == 0, conflicts_result.stderr
+        conflicts_payload = json.loads(conflicts_result.stdout)
+        assert conflicts_payload["status"] == "warning", "共享写入冲突应返回 warning"
+        assert conflicts_payload["data"]["conflict_count"] == 1
+
+        path_result = run_tracker(workspace_root, "critical-path", "--json")
+        assert path_result.returncode == 0, path_result.stderr
+        path_payload = json.loads(path_result.stdout)
+        assert path_payload["data"]["max_depth"] == 3, "merge 应处于 critical depth 3"
+    finally:
+        shutil.rmtree(workspace_root, ignore_errors=True)
+
+
+def test_lock_and_release_parallel_module():
+    workspace_root, project_root = make_parallel_workspace()
+    try:
+        lock_result = run_tracker(workspace_root, "lock", "lane_a", "--owner", "agent-a", "--json")
+        assert lock_result.returncode == 0, lock_result.stderr
+        lock_payload = json.loads(lock_result.stdout)
+        assert lock_payload["data"]["lock"]["owner"] == "agent-a"
+
+        plan = json.loads((project_root / "docs" / "plan.json").read_text(encoding="utf-8"))
+        lane_a = [m for b in plan["batches"] for m in b["modules"] if m["name"] == "lane_a"][0]
+        assert lane_a["lock"]["owner"] == "agent-a"
+
+        conflict_lock = run_tracker(workspace_root, "lock", "lane_a", "--owner", "agent-b", "--json")
+        assert conflict_lock.returncode == 1, "其他 owner 不应覆盖已有锁"
+
+        release_result = run_tracker(workspace_root, "release", "lane_a", "--owner", "agent-a", "--json")
+        assert release_result.returncode == 0, release_result.stderr
+        plan = json.loads((project_root / "docs" / "plan.json").read_text(encoding="utf-8"))
+        lane_a = [m for b in plan["batches"] for m in b["modules"] if m["name"] == "lane_a"][0]
+        assert "lock" not in lane_a
+    finally:
+        shutil.rmtree(workspace_root, ignore_errors=True)
+
+
 if __name__ == "__main__":
     tests = [
         test_complete_rejects_stub_module,
         test_complete_accepts_real_module_and_updates_plan,
         test_validate_rejects_completed_stub_module,
+        test_parallel_next_conflicts_and_critical_path_commands,
+        test_lock_and_release_parallel_module,
     ]
     failed = 0
     for test in tests:

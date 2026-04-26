@@ -196,7 +196,7 @@ def test_skill_tracker_has_all_subcommands():
         capture_output=True, text=True
     )
     output = result.stdout + result.stderr
-    for cmd in ["candidates", "validate", "approve", "reject", "promote", "status"]:
+    for cmd in ["candidates", "validate", "approve", "reject", "promote", "status", "defer", "archive", "project-only", "rollback-info", "validate-schema", "review-summary"]:
         assert cmd in output, f"tracker.py 缺少子命令：{cmd}"
 
 
@@ -210,6 +210,26 @@ def test_skill_tracker_has_changelog_write():
     content = SKILL_TRACKER.read_text()
     assert "write_changelog_entry" in content or "changelog" in content.lower(), \
         "tracker.py promote 后必须写入 skill-changelog.md"
+
+
+def test_skill_tracker_promote_has_marked_rollback_boundary():
+    content = SKILL_TRACKER.read_text()
+    assert "DEV_SDD:PROMOTE:BEGIN" in content, "promote 必须写入可回滚开始标记"
+    assert "DEV_SDD:PROMOTE:END" in content, "promote 必须写入可回滚结束标记"
+    assert "rollback_marker_begin" in content and "rollback-info" in content, "必须暴露 rollback 元数据和查询命令"
+
+
+def test_skill_tracker_has_review_summary_recommendations():
+    content = SKILL_TRACKER.read_text()
+    assert "review-summary" in content, "skill-tracker 应提供候选审核摘要命令"
+    assert "defer_until_more_evidence" in content, "审核摘要应能建议等待更多证据"
+    assert "approve_or_promote" in content, "审核摘要应能建议批准或提升"
+
+
+def test_skill_tracker_validates_confidence_consistency():
+    content = SKILL_TRACKER.read_text()
+    assert "confidence_mismatch" in content, "schema 校验应检测 confidence 与 validated_projects 数量不一致"
+    assert "expected_confidence" in content, "schema 校验应计算期望 confidence"
 
 
 # ── skill-review command ─────────────────────────────────────────────────────
@@ -237,6 +257,12 @@ def test_schema_has_all_candidate_types():
     for ctype in ["skill_rule", "hook_trigger", "agent_constraint",
                   "permission_relax", "test_stub"]:
         assert ctype in content, f"SCHEMA.md 缺少类型：{ctype}"
+
+
+def test_schema_has_extended_review_lifecycle_and_rollback_fields():
+    content = SCHEMA.read_text()
+    for phrase in ["deferred", "archived", "project_only", "rollback_marker_begin", "review_history", "DEV_SDD:PROMOTE:BEGIN"]:
+        assert phrase in content, f"SCHEMA.md 缺少候选生命周期/回滚字段：{phrase}"
 
 
 # ── skill-changelog.md ───────────────────────────────────────────────────────

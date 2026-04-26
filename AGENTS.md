@@ -23,6 +23,8 @@ Step 2.5: 【新增】检查 projects/<PROJECT>/memory/sessions/ 最新文件
               输出 [NEW SESSION] 标记
           执行 context-probe：读取用户任务描述，自动匹配记忆 + 候选预警
               → 读取 .claude/skills/context-probe/SKILL.md
+          执行 prompt-policy：按任务大类注入质量约束提示词
+              → 读取 .claude/skills/prompt-policy/SKILL.md
 
 Step 3: 输出确认语：
         "[SDD就绪] 框架v3.1 | CRITICAL:5条 | 项目:<名称或无> | 等待任务"
@@ -65,6 +67,7 @@ PROJECT_PATH: projects/agentplatform
 | 任何任务开始             | `memory/INDEX.md`                            |
 | 查看任务级实现细节         | `projects/<PROJECT>/docs/sub_docs/`          |
 | 任务描述后自动匹配记忆        | `.claude/skills/context-probe/SKILL.md`      |
+| 任务大类质量约束注入          | `.claude/skills/prompt-policy/SKILL.md`      |
 | 收到开发任务             | `.claude/skills/complexity-assess/SKILL.md`  |
 | TDD 实现阶段           | `.claude/skills/tdd-cycle/SKILL.md`          |
 | 出现 Bug / RED > 2 次 | `.claude/skills/diagnose-bug/SKILL.md`       |

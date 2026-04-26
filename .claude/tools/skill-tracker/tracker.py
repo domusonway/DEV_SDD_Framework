@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 """
 skill-tracker/tracker.py
 全类型框架改进候选的跨项目追踪与提升工具
@@ -68,6 +70,30 @@ PROMOTE_TARGETS = {
     "test_stub": "auto_sync",
     "command_missing": "create_new",
     "planner_risk_dimension_missing": "direct_append",
+}
+
+REQUIRED_CANDIDATE_FIELDS = [
+    "id",
+    "candidate_type",
+    "source_project",
+    "observed_evidence",
+    "proposed_rule",
+    "target_file",
+    "proposed_diff",
+    "confidence",
+    "validated_projects",
+    "status",
+    "created",
+]
+
+KNOWN_STATUSES = {
+    "pending_review",
+    "approved",
+    "rejected",
+    "promoted",
+    "deferred",
+    "archived",
+    "project_only",
 }
 
 # ── YAML 解析 ─────────────────────────────────────────────────────────────────
@@ -151,6 +177,40 @@ def update_candidate_field(filepath: Path, field: str, value: str):
     filepath.write_text(new_content, encoding="utf-8")
 
 
+def append_candidate_audit(filepath: Path, action: str, detail: str = ""):
+    today = datetime.now().strftime("%Y-%m-%d")
+    content = filepath.read_text(encoding="utf-8")
+    audit_line = f"\nreview_history:\n  - {today}: {action}{(' - ' + detail) if detail else ''}\n"
+    if "review_history:" in content:
+        audit_line = f"  - {today}: {action}{(' - ' + detail) if detail else ''}\n"
+    filepath.write_text(content.rstrip("\n") + "\n" + audit_line, encoding="utf-8")
+
+
+def validate_candidate_record(data: dict) -> list[str]:
+    errors = []
+    for field in REQUIRED_CANDIDATE_FIELDS:
+        value = data.get(field)
+        if value in (None, "", []):
+            errors.append(f"missing:{field}")
+    status = data.get("status")
+    if status and status not in KNOWN_STATUSES:
+        errors.append(f"invalid_status:{status}")
+    confidence = data.get("confidence")
+    if confidence and confidence not in {"low", "medium", "high"}:
+        errors.append(f"invalid_confidence:{confidence}")
+    validated = data.get("validated_projects", [])
+    if isinstance(validated, str):
+        validated_count = 1 if validated else 0
+    elif isinstance(validated, list):
+        validated_count = len(validated)
+    else:
+        validated_count = 0
+    expected_confidence = "low" if validated_count < 2 else ("medium" if validated_count < 3 else "high")
+    if confidence in {"low", "medium", "high"} and confidence != expected_confidence:
+        errors.append(f"confidence_mismatch:{confidence}_expected_{expected_confidence}_for_{validated_count}_projects")
+    return errors
+
+
 def append_validated_project(filepath: Path, project: str):
     content = filepath.read_text(encoding="utf-8")
     if project in content:
@@ -218,10 +278,17 @@ def promote_direct_append(data: dict, filepath: Path) -> bool:
         return False
     candidate_id = data.get("id", filepath.stem)
     today = datetime.now().strftime("%Y-%m-%d")
-    addition = f"\n\n<!-- promoted from {candidate_id} on {today} -->\n{diff_content}\n"
+    marker_begin = f"<!-- DEV_SDD:PROMOTE:BEGIN id={candidate_id} date={today} -->"
+    marker_end = f"<!-- DEV_SDD:PROMOTE:END id={candidate_id} -->"
+    addition = f"\n\n{marker_begin}\n{diff_content}\n{marker_end}\n"
     existing = target.read_text(encoding="utf-8")
     target.write_text(existing + addition, encoding="utf-8")
+    update_candidate_field(filepath, "promote_strategy", "direct_append_marked")
+    update_candidate_field(filepath, "rollback_marker_begin", f"'{marker_begin}'")
+    update_candidate_field(filepath, "rollback_marker_end", f"'{marker_end}'")
+    update_candidate_field(filepath, "promoted_target", str(target.relative_to(ROOT)))
     print(f"  ✅ 已追加到：{target.relative_to(ROOT)}")
+    print(f"  ↩ rollback marker: {marker_begin} ... {marker_end}")
     return True
 
 
@@ -289,6 +356,7 @@ def do_promote(candidate_id: str, confirm: bool = False) -> bool:
         # 清除 auto_attach（已正式 promote，不再需要临时激活）
         update_candidate_field(filepath, "auto_attach", "false")
         write_changelog_entry(target)
+        append_candidate_audit(filepath, "promote", f"strategy={promote_strategy}")
         # 触发 test-sync
         if ctype in ("skill_rule", "hook_trigger", "hook_check"):
             target_file = target.get("target_file", "")
@@ -322,6 +390,7 @@ def write_changelog_entry(data: dict):
 - 验证项目：{', '.join(projects)}
 - 类型：{data.get('candidate_type', 'unknown')}
 - 审核：人工批准
+- 回滚：若为 direct_append_marked，删除目标文件中 `DEV_SDD:PROMOTE:BEGIN id={cid}` 到 `DEV_SDD:PROMOTE:END id={cid}` 的块
 """
     existing = CHANGELOG.read_text(encoding="utf-8")
     CHANGELOG.write_text(existing + entry, encoding="utf-8")
@@ -401,6 +470,7 @@ def cmd_approve(args):
         print(f"❌ 未找到候选：{args.id}")
         sys.exit(1)
     update_candidate_field(target["_file"], "status", "approved")
+    append_candidate_audit(target["_file"], "approve")
     print(f"✅ {args.id} 已标记为 approved")
 
 
@@ -416,7 +486,85 @@ def cmd_reject(args):
     if args.reason:
         content = target["_file"].read_text(encoding="utf-8")
         target["_file"].write_text(content + f"\nreject_reason: {args.reason}\n", encoding="utf-8")
+    append_candidate_audit(target["_file"], "reject", args.reason or "")
     print(f"✅ {args.id} 已标记为 rejected：{args.reason or '（无原因）'}")
+
+
+def _set_lifecycle_status(args, status: str, field_name: str, success_label: str):
+    candidates = load_all_candidates()
+    target = next((c for c in candidates if c.get("id") == args.id), None)
+    if not target:
+        print(f"❌ 未找到候选：{args.id}")
+        sys.exit(1)
+    update_candidate_field(target["_file"], "status", status)
+    if getattr(args, "reason", ""):
+        update_candidate_field(target["_file"], field_name, args.reason)
+    if status in {"archived", "project_only"}:
+        update_candidate_field(target["_file"], "auto_attach", "false")
+    append_candidate_audit(target["_file"], status, getattr(args, "reason", "") or "")
+    print(f"✅ {args.id} 已标记为 {success_label}: {getattr(args, 'reason', '') or '（无原因）'}")
+
+
+def cmd_defer(args):
+    _set_lifecycle_status(args, "deferred", "defer_reason", "deferred")
+
+
+def cmd_archive(args):
+    _set_lifecycle_status(args, "archived", "archive_reason", "archived")
+
+
+def cmd_project_only(args):
+    _set_lifecycle_status(args, "project_only", "project_only_reason", "project_only")
+
+
+def cmd_validate_schema(args):
+    candidates = load_all_candidates()
+    invalid = []
+    for candidate in candidates:
+        errors = validate_candidate_record(candidate)
+        if errors:
+            invalid.append({
+                "id": candidate.get("id") or candidate.get("_file").stem,
+                "file": str(candidate.get("_file").relative_to(ROOT)),
+                "errors": errors,
+            })
+    status = "ok" if not invalid else "error"
+    payload = {
+        "status": status,
+        "message": "candidate schema 校验通过" if not invalid else f"{len(invalid)} 个候选 schema 异常",
+        "data": {"total": len(candidates), "invalid": invalid},
+    }
+    if getattr(args, "json", False):
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+        return
+    print(payload["message"])
+    for item in invalid:
+        print(f"  - {item['id']}: {', '.join(item['errors'])}")
+
+
+def cmd_rollback_info(args):
+    candidates = load_all_candidates()
+    target = next((c for c in candidates if c.get("id") == args.id), None)
+    if not target:
+        print(f"❌ 未找到候选：{args.id}")
+        sys.exit(1)
+    data = {
+        "id": target.get("id"),
+        "status": target.get("status"),
+        "promoted_target": target.get("promoted_target") or target.get("target_file"),
+        "promote_strategy": target.get("promote_strategy", "unknown"),
+        "rollback_marker_begin": target.get("rollback_marker_begin", ""),
+        "rollback_marker_end": target.get("rollback_marker_end", ""),
+        "manual_instruction": "Remove the marked DEV_SDD:PROMOTE block from promoted_target; do not use destructive git reset.",
+    }
+    if getattr(args, "json", False):
+        print(json.dumps({"status": "ok", "message": "rollback info", "data": data}, ensure_ascii=False, indent=2))
+        return
+    print(f"候选: {data['id']}")
+    print(f"目标: {data['promoted_target']}")
+    print(f"策略: {data['promote_strategy']}")
+    print(f"begin: {data['rollback_marker_begin']}")
+    print(f"end: {data['rollback_marker_end']}")
 
 
 def cmd_promote(args):
@@ -444,6 +592,50 @@ def cmd_status(args):
     print(f"\n  按类型：")
     for t, n in sorted(by_type.items()):
         print(f"    {t:<30} {n}")
+
+
+def _recommend_review_action(candidate: dict) -> str:
+    status = candidate.get("status", "pending_review")
+    if status != "pending_review":
+        return "none"
+    confidence = candidate.get("confidence", "low")
+    validated = candidate.get("validated_projects", [])
+    vcount = len(validated) if isinstance(validated, list) else (1 if validated else 0)
+    if confidence == "high" or vcount >= 3:
+        return "approve_or_promote"
+    if confidence == "medium" or vcount >= 2:
+        return "review_or_attach_temp"
+    return "defer_until_more_evidence"
+
+
+def cmd_review_summary(args):
+    candidates = load_all_candidates()
+    rows = []
+    for candidate in candidates:
+        rows.append({
+            "id": candidate.get("id"),
+            "status": candidate.get("status"),
+            "candidate_type": candidate.get("candidate_type"),
+            "confidence": candidate.get("confidence"),
+            "source_project": candidate.get("source_project"),
+            "target_file": candidate.get("target_file"),
+            "recommendation": _recommend_review_action(candidate),
+        })
+    by_recommendation: dict[str, int] = {}
+    for row in rows:
+        key = row["recommendation"] or "none"
+        by_recommendation[key] = by_recommendation.get(key, 0) + 1
+    payload = {
+        "total": len(rows),
+        "by_recommendation": by_recommendation,
+        "items": rows,
+    }
+    if getattr(args, "json", False):
+        print(json.dumps({"status": "ok", "message": "candidate review summary", "data": payload}, ensure_ascii=False, indent=2))
+        return
+    print("candidate review summary")
+    for row in rows:
+        print(f"  - {row['id']} [{row['confidence']}] → {row['recommendation']}")
 
 
 # ── 主入口 ────────────────────────────────────────────────────────────────────
@@ -509,8 +701,29 @@ def main():
     pro_p.add_argument("id", help="候选 ID")
     pro_p.add_argument("--confirm", action="store_true", help="强制执行（跳过状态检查）")
 
+    defer_p = subparsers.add_parser("defer", help="暂缓候选，等待更多证据")
+    defer_p.add_argument("id", help="候选 ID")
+    defer_p.add_argument("--reason", default="", help="暂缓原因")
+
+    archive_p = subparsers.add_parser("archive", help="归档候选，不再参与审核")
+    archive_p.add_argument("id", help="候选 ID")
+    archive_p.add_argument("--reason", default="", help="归档原因")
+
+    project_only_p = subparsers.add_parser("project-only", help="标记候选仅适用于来源项目")
+    project_only_p.add_argument("id", help="候选 ID")
+    project_only_p.add_argument("--reason", default="", help="项目限定原因")
+
+    schema_p = subparsers.add_parser("validate-schema", help="校验候选 schema 健康度")
+    schema_p.add_argument("--json", action="store_true", help="输出 JSON envelope")
+
+    rollback_p = subparsers.add_parser("rollback-info", help="显示候选 promote 的回滚标记与人工回滚说明")
+    rollback_p.add_argument("id", help="候选 ID")
+    rollback_p.add_argument("--json", action="store_true", help="输出 JSON envelope")
+
     # status
     subparsers.add_parser("status", help="候选库总体统计")
+    review_summary_p = subparsers.add_parser("review-summary", help="输出候选审核建议摘要")
+    review_summary_p.add_argument("--json", action="store_true", help="输出 JSON envelope")
 
     args = parser.parse_args()
 
@@ -522,7 +735,13 @@ def main():
         "approve": cmd_approve,
         "reject": cmd_reject,
         "promote": cmd_promote,
+        "defer": cmd_defer,
+        "archive": cmd_archive,
+        "project-only": cmd_project_only,
+        "validate-schema": cmd_validate_schema,
+        "rollback-info": cmd_rollback_info,
         "status": cmd_status,
+        "review-summary": cmd_review_summary,
     }
 
     if args.cmd in dispatch:

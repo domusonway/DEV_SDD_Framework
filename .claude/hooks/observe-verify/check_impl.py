@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 """
 observe-verify/check_impl.py
 检查 Python 实现文件是否存在不完整的占位符（pass, return None, raise NotImplementedError）

@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 """
 skill-tests/cases/test_start_work_tool.py
 Layer 1: /DEV_SDD:start-work 辅助 CLI 合规测试
@@ -217,6 +219,91 @@ def test_reconciliation_reports_todo_deprecated_and_keeps_plan_next_action():
         shutil.rmtree(p, ignore_errors=True)
 
 
+def test_completed_plan_ignores_stale_in_progress_session_and_reports_parallel_pool():
+    p = _mk_project("start_work_stale_session")
+    try:
+        project = p.name
+        _write_plan_json(p, [
+            {"id": "T-001", "name": "module_alpha", "state": "completed"},
+            {"id": "T-002", "name": "module_beta", "state": "completed", "deps": ["module_alpha"]},
+        ])
+        (p / "memory" / "sessions" / "2099-01-01_00-01.md").write_text(
+            "---\nstatus: in-progress\ntask: old-task\n---\n\n下次继续: 继续 old-task\n",
+            encoding="utf-8",
+        )
+
+        result = run_tool(project, "--json")
+        data = parse_json_output(result, "start-work stale session")
+        assert data["data"]["session"]["state"] == "NEW SESSION", "完成计划不应被旧 session 覆盖"
+        assert data["data"]["session"].get("stale_session_ignored") is True
+        assert data["data"]["next_action_source"] == "plan.json"
+        assert data["data"].get("parallel", {}).get("ready_count") == 0
+    finally:
+        shutil.rmtree(p, ignore_errors=True)
+
+
+def test_start_work_reports_parallel_ready_tasks_for_unblocked_modules():
+    p = _mk_project("start_work_parallel_pool")
+    try:
+        project = p.name
+        _write_plan_json(p, [
+            {"id": "T-001", "name": "shared_base", "state": "completed"},
+            {"id": "T-002", "name": "lane_a", "state": "pending", "deps": ["shared_base"], "execution": {"group": "G-A"}},
+            {"id": "T-003", "name": "lane_b", "state": "pending", "deps": ["shared_base"], "execution": {"group": "G-B"}},
+            {"id": "T-004", "name": "merge_gate", "state": "pending", "deps": ["lane_a", "lane_b"]},
+        ])
+
+        result = run_tool(project, "--json")
+        data = parse_json_output(result, "start-work parallel pool")
+        ready = data["data"].get("parallel", {}).get("ready_tasks") or []
+        names = {task["name"] for task in ready}
+        assert names == {"lane_a", "lane_b"}, f"应只返回已解锁 lane: {names}"
+        assert data["data"]["parallel"]["ready_count"] == 2
+    finally:
+        shutil.rmtree(p, ignore_errors=True)
+
+
+def test_start_work_includes_prompt_policy_for_task_text():
+    p = _mk_project("start_work_prompt_policy")
+    try:
+        project = p.name
+        _write_plan_json(p, [
+            {"id": "T-001", "name": "module_alpha", "state": "pending"},
+        ])
+        result = run_tool(project, "--json", "--task", "请审查多模块并行规划和经验沉淀人工审核")
+        data = parse_json_output(result, "start-work prompt policy")
+        matched = data["data"].get("prompt_policy", {}).get("matched") or []
+        assert "planning_parallel" in matched
+        assert "memory_review" in matched
+        assert "review_evaluate_analyze" in matched
+    finally:
+        shutil.rmtree(p, ignore_errors=True)
+
+
+def test_start_work_includes_doc_template_for_document_creation_task():
+    p = _mk_project("start_work_doc_template")
+    try:
+        project = p.name
+        _write_plan_json(p, [
+            {"id": "T-001", "name": "runtime", "state": "pending"},
+        ])
+        result = run_tool(project, "--json", "--task", "请创建 runtime 模块验证报告，覆盖 CLI、上游输入和下游输出")
+        data = parse_json_output(result, "start-work doc-template")
+        doc_info = data["data"].get("doc_template") or {}
+        assert doc_info.get("matched") is True, doc_info
+        assert doc_info.get("template_id") == "module-validation-report", doc_info
+        assert doc_info.get("confidence") in {"high", "medium"}
+        assert doc_info.get("suggested_path", "").endswith("docs/sub_docs/validation/runtime-validation-report.md")
+        assert doc_info.get("language_policy") == "zh_cn_default_preserve_terms"
+        assert doc_info.get("validation_required") is True
+        block = doc_info.get("doc_template_block", "")
+        assert "[DOC-TEMPLATE]" in block
+        assert "language: zh-CN default, preserve technical terms" in block
+        assert "validate" in doc_info.get("validate_command", "")
+    finally:
+        shutil.rmtree(p, ignore_errors=True)
+
+
 def test_absolute_external_project_path_returns_json_without_crashing():
     p = _mk_external_project("start_work_external_absolute")
     try:
@@ -252,6 +339,10 @@ if __name__ == "__main__":
         test_plan_priority_prefers_plan_json_then_markdown_fallbacks,
         test_session_state_prefers_handoff_then_in_progress_session,
         test_reconciliation_reports_todo_deprecated_and_keeps_plan_next_action,
+        test_completed_plan_ignores_stale_in_progress_session_and_reports_parallel_pool,
+        test_start_work_reports_parallel_ready_tasks_for_unblocked_modules,
+        test_start_work_includes_prompt_policy_for_task_text,
+        test_start_work_includes_doc_template_for_document_creation_task,
         test_absolute_external_project_path_returns_json_without_crashing,
     ]
     failed = 0

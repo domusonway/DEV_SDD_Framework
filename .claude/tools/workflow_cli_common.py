@@ -43,6 +43,71 @@ def safe_read_text(path: Path) -> str:
         return ""
 
 
+def _parse_scalar(value: str) -> Any:
+    stripped = value.strip().strip("'\"")
+    if stripped.lower() == "true":
+        return True
+    if stripped.lower() == "false":
+        return False
+    if stripped.lower() in {"null", "none"}:
+        return None
+    if re.fullmatch(r"-?\d+", stripped):
+        try:
+            return int(stripped)
+        except ValueError:
+            return stripped
+    if re.fullmatch(r"-?\d+\.\d+", stripped):
+        try:
+            return float(stripped)
+        except ValueError:
+            return stripped
+    return stripped
+
+
+def parse_simple_yaml(content: str) -> dict[str, Any]:
+    """Parse the small subset of YAML used by framework config.yaml.
+
+    Supported: nested mappings with two-space indentation and scalar values.
+    This avoids adding PyYAML as a framework dependency.
+    """
+    root: dict[str, Any] = {}
+    stack: list[tuple[int, dict[str, Any]]] = [(-1, root)]
+    for raw_line in content.splitlines():
+        if not raw_line.strip() or raw_line.lstrip().startswith("#"):
+            continue
+        indent = len(raw_line) - len(raw_line.lstrip(" "))
+        line = raw_line.strip()
+        if ":" not in line:
+            continue
+        key, value = line.split(":", 1)
+        key = key.strip()
+        value = value.strip()
+        while stack and indent <= stack[-1][0]:
+            stack.pop()
+        parent = stack[-1][1]
+        if not value:
+            child: dict[str, Any] = {}
+            parent[key] = child
+            stack.append((indent, child))
+        else:
+            parent[key] = _parse_scalar(value)
+    return root
+
+
+def load_framework_config(root: Path | None = None) -> dict[str, Any]:
+    base = root or find_framework_root(None)
+    return parse_simple_yaml(safe_read_text(base / "config.yaml"))
+
+
+def get_config_value(config: dict[str, Any], dotted_path: str, default: Any = None) -> Any:
+    current: Any = config
+    for part in dotted_path.split("."):
+        if not isinstance(current, dict) or part not in current:
+            return default
+        current = current[part]
+    return current
+
+
 def parse_project_from_text(content: str) -> str | None:
     if not content:
         return None

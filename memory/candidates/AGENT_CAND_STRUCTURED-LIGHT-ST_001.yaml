@@ -20,7 +20,7 @@ proposed_diff: |
 confidence: low
 validated_projects:
   - structured-light-stereo
-status: pending_review
+status: deferred
 auto_attach: false
 auto_attach_triggered_projects: []
 auto_attach_issues: []
@@ -28,3 +28,7 @@ created: 2026-04-04
 domain: agent_workflow
 secondary_target: docs/PROJECT_RULES.md
 failure_count: 1
+defer_reason: single-project evidence; wait for another project before promotion
+
+review_history:
+  - 2026-04-26: deferred - single-project evidence; wait for another project before promotion

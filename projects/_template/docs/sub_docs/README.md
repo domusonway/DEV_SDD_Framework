@@ -1,11 +1,18 @@
 # sub_docs
 
-`docs/sub_docs/` 用于存放按任务拆分的实现细节文档。
+`docs/sub_docs/` stores project task details. `docs/plan.json` remains the execution source of truth.
 
-- `docs/plan.json` 维护全局执行状态与任务索引。
-- `docs/sub_docs/` 维护任务级分析、实现与验证记录。
+Standard directories:
 
-推荐路径：
+| Directory | Template IDs | Purpose |
+|---|---|---|
+| `analysis/` | `problem-analysis` | Issue triage, root cause and risk analysis |
+| `architecture/` | `architecture-overview` | Project structure, module boundaries, data flow |
+| `bug/` | `problem-analysis` | Bug-specific diagnosis, fix and regression notes |
+| `decisions/` | `decision-record` | Decision records and trade-offs |
+| `feature/` | `implementation-brief` | Feature/task design and implementation details |
+| `reports/` | `project-status-review`, `review-report` | Project status, review and closeout reports |
+| `rules/` | `rule-guide` | Project-specific operating rules and guides |
+| `validation/` | `module-validation-report` | Module validation reports and evidence |
 
-- feature 任务：`docs/sub_docs/feature/modules/<module>/<task_id>.md`
-- bug 任务：`docs/sub_docs/bug/modules/<module>/<task_id>.md`
+Use `python3 .claude/tools/doc-template/run.py classify "<task>" --json` before creating new documents.

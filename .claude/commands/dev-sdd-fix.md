@@ -38,8 +38,8 @@ issue JSON 至少应提供：
    - 显式 `project` 路径/名称优先
    - 缺失时回退到当前激活项目
 3. 在提出修复建议前，必须先读取：
-   - 项目上下文：优先 `projects/<PROJECT>/docs/CONTEXT.md`，再回退 `CLAUDE.md` / `README.md`
-   - 项目记忆：`projects/<PROJECT>/memory/INDEX.md`
+   - 项目上下文：优先 `<PROJECT_ROOT>/docs/CONTEXT.md`，再回退 `CLAUDE.md` / `README.md`
+   - 项目记忆：`<PROJECT_ROOT>/memory/INDEX.md`
    - 计划信息：`docs/plan.json` → `docs/PLAN.md` → `docs/IMPLEMENTATION_PLAN.md`
 4. 生成 triage 摘要：
    - 问题是否可复现
@@ -58,7 +58,7 @@ issue JSON 至少应提供：
    - `regression_scope`
    - `why`
 7. 输出 memory sedimentation follow-up：
-   - 若修复可能产生新的可复用经验，提示在验证通过后更新 `projects/<PROJECT>/memory/INDEX.md`
+   - 若修复可能产生新的可复用经验，提示在验证通过后更新 `<PROJECT_ROOT>/memory/INDEX.md`
 
 ## 稀疏 issue 的降级规则
 - 若缺少 `reproduction_steps`、`expected_behavior`、`actual_behavior` 等关键上下文：

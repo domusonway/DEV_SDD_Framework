@@ -22,9 +22,9 @@
 ```
 此经验是否适用于其他项目？
     │
-    ├─ 仅适用于本项目技术栈/需求 → 写入 projects/<n>/memory/
+    ├─ 仅适用于本项目技术栈/需求 → 写入 <PROJECT_ROOT>/memory/
     │
-    ├─ 可能适用但未验证 → 写入 projects/<n>/memory/（标注待验证）
+    ├─ 可能适用但未验证 → 写入 <PROJECT_ROOT>/memory/（标注待验证）
     │
     └─ 跨项目验证（≥3个项目）→ 升级写入 memory/（框架记忆）
 ```
@@ -54,7 +54,7 @@ action: <写入的 memory 文件路径 / candidate 路径 / 无>
 
 ### Step 3: 写项目记忆文件
 
-格式：`projects/<n>/memory/<domain>/<topic>.md`
+格式：`<PROJECT_ROOT>/memory/<domain>/<topic>.md`。若配置 `PROJECT_PATH`，`<PROJECT_ROOT>` 必须使用 `PROJECT_PATH` 指向的真实子项目根；workspace 根和 `projects/<PROJECT>` fallback 不得混写子项目记忆。
 
 示例：
 - `projects/HarnessEvaluationFramework/memory/network/gateway-routing.md`

@@ -5,13 +5,27 @@
 # 用法：bash .claude/hooks/verify-rules/check_tools.sh <project_name>
 set -eu
 
-PROJECT="${1:-}"
+FRAMEWORK_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../" && pwd)"
+PROJECT_INPUT="${1:-}"
+PROJECT="${PROJECT_INPUT}"
+PROJECT_DIR=""
+PROJECT_PATH=""
+
+if [ -n "$PROJECT_INPUT" ] && [ -d "$PROJECT_INPUT" ]; then
+    PROJECT_DIR="$(cd "$PROJECT_INPUT" && pwd)"
+    PROJECT="$(basename "$PROJECT_DIR")"
+fi
+
 if [ -z "$PROJECT" ]; then
-    FRAMEWORK_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../" && pwd)"
-    CLAUDE_MD="$FRAMEWORK_ROOT/CLAUDE.md"
-    if [ -f "$CLAUDE_MD" ]; then
-        PROJECT=$(grep -E "^PROJECT:" "$CLAUDE_MD" | head -1 | sed 's/PROJECT://' | tr -d ' ')
-    fi
+    for ENTRY_MD in "$FRAMEWORK_ROOT/AGENTS.md" "$FRAMEWORK_ROOT/CLAUDE.md"; do
+        if [ -f "$ENTRY_MD" ]; then
+            PROJECT=$(grep -E "^PROJECT:" "$ENTRY_MD" | head -1 | sed 's/PROJECT://' | tr -d ' ' || true)
+            PROJECT_PATH=$(grep -E "^PROJECT_PATH:" "$ENTRY_MD" | head -1 | sed 's/PROJECT_PATH://' | sed 's/^ *//' | sed 's/ *$//' || true)
+            if [ -n "$PROJECT" ]; then
+                break
+            fi
+        fi
+    done
 fi
 
 if [ -z "$PROJECT" ] || [ "$PROJECT" = "none" ]; then
@@ -19,8 +33,17 @@ if [ -z "$PROJECT" ] || [ "$PROJECT" = "none" ]; then
     exit 0
 fi
 
-FRAMEWORK_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../" && pwd)"
-PROJECT_DIR="$FRAMEWORK_ROOT/projects/$PROJECT"
+if [ -z "$PROJECT_DIR" ]; then
+    if [ -n "$PROJECT_PATH" ]; then
+        if [[ "$PROJECT_PATH" = /* ]]; then
+            PROJECT_DIR="$PROJECT_PATH"
+        else
+            PROJECT_DIR="$FRAMEWORK_ROOT/$PROJECT_PATH"
+        fi
+    else
+        PROJECT_DIR="$FRAMEWORK_ROOT/projects/$PROJECT"
+    fi
+fi
 SESSIONS_DIR="$PROJECT_DIR/memory/sessions"
 PLAN_JSON="$PROJECT_DIR/docs/plan.json"
 HANDOFF="$PROJECT_DIR/HANDOFF.json"

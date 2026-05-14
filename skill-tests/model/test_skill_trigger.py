@@ -36,6 +36,7 @@ ROUTING_SYSTEM = """
 | 项目完成后 | .claude/skills/memory-update/SKILL.md |
 | 涉及 HTTP 协议 | memory/domains/http/INDEX.md |
 | H 模式多模块规划 | .claude/agents/planner.md |
+| 长任务/复杂任务/交付结论前 | .claude/hooks/challenge-gate/HOOK.md + .claude/agents/challenger.md |
 | 写任何网络代码后 | .claude/hooks/network-guard/HOOK.md（立即执行）|
 | RED 超过 2 次 | .claude/hooks/stuck-detector/HOOK.md（立即执行）|
 | 所有测试 GREEN | .claude/hooks/post-green/HOOK.md（立即执行）|
@@ -88,6 +89,12 @@ TRIGGER_CASES = [
         "scenario": "复杂度评估结果：模块数=4, 外部依赖=1, 并发=2, 状态=1, 测试=2, 总分=10。进入 H 模式，需要开始规划。",
         "criterion": "模型应该指出需要读取 .claude/agents/planner.md，因为是 H 模式需要依赖拓扑分析",
         "expected_path": "planner",
+    },
+    {
+        "name": "交付结论前触发 challenge-gate",
+        "scenario": "这是一个长任务，刚完成所有验证，准备输出最终结论并声明交付就绪。",
+        "criterion": "模型应该指出需要读取 .claude/hooks/challenge-gate/HOOK.md，并在命中时读取 .claude/agents/challenger.md，因为长任务或交付结论前需要质疑复核",
+        "expected_path": "challenge-gate",
     },
 ]
 

@@ -29,6 +29,7 @@ for 批次 in Planner.批次列表:
     确认批次内所有模块 GREEN
     执行批次完成检查（见下方）
     触发 post-green hook（每批次结束时）
+    若任务为长任务、复杂任务或跨模块批次：执行 challenge-gate，确认可进入下一批次
 ```
 
 ---
@@ -44,6 +45,7 @@ for 批次 in Planner.批次列表:
 - [ ] **memory/INDEX.md 的"接口快照"中本批次接口标记为 🟢**
 - [ ] 下一批次依赖的接口已在"接口快照"中标记为 🟢（稳定）
 - [ ] **运行 check_tools.sh，无新增 TOOL_SIGNAL 或已记录到 session**
+- [ ] 长任务/复杂任务/跨模块批次已执行 `challenge-gate`，无 `rework` 或 `ask_user` 阻塞
 
 > ⚠️ 若 PLAN.md 未更新，视为本批次**未完成**，不得进入下一批次。
 

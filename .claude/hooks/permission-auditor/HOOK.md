@@ -9,7 +9,7 @@
 演变，会出现两类问题：
 
 1. **deny 过宽**：某个合理操作被 deny 规则误阻止，导致 Claude 卡住或绕道
-2. **allow 范围过宽**：`Write(projects/${PROJECT}/**)` 这类规则允许的范围
+2. **allow 范围过宽**：`Write(<PROJECT_ROOT>/**)` 这类规则允许的范围
    超出实际使用需要，增加了误操作风险
 
 ---

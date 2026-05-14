@@ -28,6 +28,24 @@ REQUIRED_TEMPLATES = [
 ]
 
 
+def active_project_sub_docs_root() -> Path:
+    project = ""
+    project_path = ""
+    for candidate in [FRAMEWORK_ROOT / "AGENTS.md", FRAMEWORK_ROOT / "CLAUDE.md"]:
+        if not candidate.exists():
+            continue
+        for line in candidate.read_text(encoding="utf-8").splitlines():
+            stripped = line.strip()
+            if stripped.startswith("PROJECT:") and not project:
+                project = stripped.split(":", 1)[1].strip()
+            if stripped.startswith("PROJECT_PATH:") and not project_path:
+                project_path = stripped.split(":", 1)[1].strip()
+        if project:
+            break
+    project_root = project_path or f"projects/{project}"
+    return FRAMEWORK_ROOT / project_root / "docs" / "sub_docs"
+
+
 def run_tool(*args: str):
     return subprocess.run([sys.executable, str(TOOL_PATH), *args], capture_output=True, text=True, cwd=str(FRAMEWORK_ROOT))
 
@@ -64,7 +82,6 @@ def test_standard_sub_docs_directories_exist_and_map_to_templates():
     roots = [
         FRAMEWORK_ROOT / "docs/sub_docs",
         FRAMEWORK_ROOT / "projects/_template/docs/sub_docs",
-        FRAMEWORK_ROOT / "projects/agentplatform/docs/sub_docs",
     ]
     for root in roots:
         assert (root / "README.md").exists(), f"sub_docs README 缺失: {root}"
@@ -72,6 +89,9 @@ def test_standard_sub_docs_directories_exist_and_map_to_templates():
         for dirname in STANDARD_SUB_DOCS_DIRS:
             assert (root / dirname / "README.md").exists(), f"标准目录或 README 缺失: {root / dirname}"
             assert f"`{dirname}/`" in readme, f"README 未声明标准目录 {dirname}: {root}"
+    project_root = active_project_sub_docs_root()
+    assert (project_root / "README.md").exists(), f"active project sub_docs README 缺失: {project_root}"
+    assert "docs/sub_docs/" in (project_root / "README.md").read_text(encoding="utf-8")
     index = (TEMPLATES_DIR / "INDEX.md").read_text(encoding="utf-8")
     for dirname in STANDARD_SUB_DOCS_DIRS:
         assert f"`{dirname}/`" in index, f"templates INDEX 缺少目录映射: {dirname}"
@@ -91,7 +111,7 @@ def test_scaffold_returns_project_sub_doc_path_and_required_sections():
     assert result.returncode == 0, result.stderr
     data = parse_json(result, "scaffold")["data"]
     assert data["template_id"] == "module-validation-report"
-    assert data["suggested_path"].endswith("projects/agentplatform/docs/sub_docs/validation/runtime-validation-report.md")
+    assert data["suggested_path"].endswith("projects/agentplatform_workspace/agentplatform/docs/sub_docs/validation/runtime-validation-report.md")
     assert data["language_policy"] == "zh_cn_default_preserve_terms"
     content = data["content"]
     for heading in ["## 验证目标", "## 入口路径", "## 上游输入", "## 下游输出", "## 执行命令", "## 详细证据"]:
@@ -110,6 +130,13 @@ def test_new_template_classification_and_paths_are_standardized():
         assert classified["template_id"] == template_id, classified
         scaffold = parse_json(run_tool("scaffold", template_id, "--project", "agentplatform", "--topic", "demo", "--json"), f"scaffold {template_id}")["data"]
         assert path_part in scaffold["suggested_path"], scaffold["suggested_path"]
+
+
+def test_scaffold_uses_project_path_for_active_workspace_project_name():
+    result = run_tool("scaffold", "implementation-brief", "--project", "agentplatform", "--topic", "workspace-path", "--json")
+    assert result.returncode == 0, result.stderr
+    data = parse_json(result, "scaffold workspace project")["data"]
+    assert data["suggested_path"].startswith("projects/agentplatform_workspace/agentplatform/docs/"), data["suggested_path"]
 
 
 def test_validate_reports_missing_required_sections():
@@ -152,6 +179,7 @@ if __name__ == "__main__":
         test_classify_selects_module_validation_template,
         test_scaffold_returns_project_sub_doc_path_and_required_sections,
         test_new_template_classification_and_paths_are_standardized,
+        test_scaffold_uses_project_path_for_active_workspace_project_name,
         test_validate_reports_missing_required_sections,
         test_scaffold_write_refuses_to_overwrite_without_flag,
     ]

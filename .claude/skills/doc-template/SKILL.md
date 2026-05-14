@@ -35,7 +35,7 @@ python3 .claude/tools/doc-template/run.py validate <doc-path> --template <templa
 
 1. 创建文档前必须判断文档类型和归属路径。
 2. 项目执行文档不得写到 root `docs/`。
-3. 任务/模块细节默认写入 `projects/<PROJECT>/docs/sub_docs/`。
+3. 任务/模块细节默认写入 `<PROJECT_ROOT>/docs/sub_docs/`；若配置了 `PROJECT_PATH`，`<PROJECT_ROOT>` 必须是该真实子项目根。
 4. 输出必须包含模板 required_sections。
 5. 若意图不明确，只问一个问题确认类型；若用户目标明确，直接选模板。
 6. 写完后报告模板匹配结果和质量校验结果。

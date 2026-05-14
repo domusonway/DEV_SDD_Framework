@@ -29,7 +29,7 @@
 ```bash
 python3 .claude/tools/doc-template/run.py classify "写 runtime 模块验证报告" --json
 python3 .claude/tools/doc-template/run.py scaffold module-validation-report --project agentplatform --module runtime --json
-python3 .claude/tools/doc-template/run.py validate projects/agentplatform/docs/sub_docs/runtime-validation-report.md --template module-validation-report --json
+python3 .claude/tools/doc-template/run.py validate <PROJECT_ROOT>/docs/sub_docs/runtime-validation-report.md --template module-validation-report --json
 ```
 
 ## Language Policy

@@ -26,7 +26,7 @@
 |------|------|---------|------|
 | 0–3  | **L 轻量** | BRIEF.md ≤15行 | 直接 TDD |
 | 4–7  | **M 标准** | CONTEXT.md + 各模块 SPEC.md | 规划 → TDD 逐模块 |
-| 8+   | **H 完整** | 完整文档套件 + Agent 流水线 | Planner → Implementer → Reviewer |
+| 8+   | **H 完整** | 完整文档套件 + Agent 流水线 | Planner → Challenger → Implementer → Reviewer |
 
 ---
 
@@ -45,7 +45,8 @@
 ### H 模式
 1. 写完整文档套件（CONTEXT.md + plan.json + PLAN.md + sub_docs + 所有 SPEC.md）
 2. 读取 `.claude/agents/planner.md` 生成实现批次
-3. 按批次调用 implementer → reviewer → memory-keeper
+3. Planner 输出后执行 `.claude/hooks/challenge-gate/HOOK.md`，必要时读取 `.claude/agents/challenger.md` 复核计划
+4. 按批次调用 implementer → reviewer → memory-keeper；Reviewer 交付结论前再次执行 challenge-gate
 
 ---
 

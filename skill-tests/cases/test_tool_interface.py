@@ -16,6 +16,8 @@ Layer 1: 所有工具的 CLI 接口合规测试（TASK-AF-06）
 import sys
 import json
 import subprocess
+import shutil
+import tempfile
 from pathlib import Path
 
 FRAMEWORK_ROOT = Path(__file__).parent.parent.parent
@@ -181,6 +183,31 @@ def test_session_list_latest_has_next_action_if_exists():
         assert "status" in data["data"], "session 记录缺少 status"
 
 
+def test_session_snapshot_writes_to_project_path_for_workspace_project():
+    workspace = Path(tempfile.mkdtemp(prefix="session_snapshot_workspace_"))
+    project_path = workspace / "projects" / "demo_workspace" / "demo"
+    try:
+        (workspace / "memory").mkdir(parents=True, exist_ok=True)
+        (workspace / "memory" / "INDEX.md").write_text("# framework memory\n", encoding="utf-8")
+        (workspace / "AGENTS.md").write_text(
+            "PROJECT: demo\nPROJECT_PATH: projects/demo_workspace/demo\n",
+            encoding="utf-8",
+        )
+        (project_path / "memory" / "sessions").mkdir(parents=True, exist_ok=True)
+        (project_path / "CLAUDE.md").write_text("# demo\n", encoding="utf-8")
+
+        result = run(TOOLS["session-snapshot"], "--json", "start", "workspace path session", cwd=workspace)
+        assert result.returncode == 0, result.stderr
+        payload = _assert_json_output(result.stdout, "session-snapshot workspace start")
+
+        assert payload["data"]["project"] == "demo"
+        assert (project_path / "memory" / "sessions").glob("*.md")
+        assert list((project_path / "memory" / "sessions").glob("*.md")), "应写入 PROJECT_PATH/memory/sessions"
+        assert not (workspace / "projects" / "demo" / "memory" / "sessions").exists(), "不得写入 projects/<PROJECT> fallback"
+    finally:
+        shutil.rmtree(workspace, ignore_errors=True)
+
+
 if __name__ == "__main__":
     tests = [
         test_all_tools_syntax,
@@ -198,6 +225,7 @@ if __name__ == "__main__":
         test_handoff_exists_exit_code_is_zero,
         test_sdd_cli_error_exit_code,
         test_session_list_latest_has_next_action_if_exists,
+        test_session_snapshot_writes_to_project_path_for_workspace_project,
     ]
     failed = 0
     for t in tests:

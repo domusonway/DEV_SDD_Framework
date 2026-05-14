@@ -117,12 +117,45 @@ def parse_project_from_text(content: str) -> str | None:
     return None
 
 
-def detect_active_project(root: Path) -> str | None:
+def parse_project_path_from_text(content: str) -> str | None:
+    if not content:
+        return None
+    match = re.search(r"^PROJECT_PATH:\s*(.+)$", content, re.MULTILINE)
+    if match:
+        return match.group(1).strip()
+    return None
+
+
+def active_project_config(root: Path) -> dict[str, str | None]:
+    project: str | None = None
+    project_path: str | None = None
     for rel in ["AGENTS.md", "CLAUDE.md"]:
-        project = parse_project_from_text(safe_read_text(root / rel))
-        if project:
-            return project
-    return os.environ.get("PROJECT")
+        content = safe_read_text(root / rel)
+        if not project:
+            project = parse_project_from_text(content)
+        if not project_path:
+            project_path = parse_project_path_from_text(content)
+        if project and project_path:
+            break
+    return {
+        "project": project or os.environ.get("PROJECT"),
+        "project_path": project_path or os.environ.get("PROJECT_PATH"),
+    }
+
+
+def resolve_configured_project_path(root: Path, project_path: str | None) -> Path | None:
+    if not project_path:
+        return None
+    raw = Path(project_path)
+    return raw.resolve() if raw.is_absolute() else (root / raw).resolve()
+
+
+def detect_active_project(root: Path) -> str | None:
+    return active_project_config(root).get("project")
+
+
+def detect_active_project_path(root: Path) -> str | None:
+    return active_project_config(root).get("project_path")
 
 
 def rel_path(path: Path, base: Path) -> str:
@@ -137,12 +170,21 @@ def _project_label(path: Path) -> str | None:
 
 
 def resolve_target_project(target_arg: str | None, root: Path, base_dir: Path | None = None) -> tuple[Path | None, str | None]:
+    active_config = active_project_config(root)
+    active_project = active_config.get("project")
+    configured_project_path = active_config.get("project_path")
+    configured_target = resolve_configured_project_path(root, configured_project_path)
+
     if not target_arg:
-        active_project = detect_active_project(root)
         if not active_project:
             return None, None
+        if configured_target is not None:
+            return configured_target, active_project
         target = (root / "projects" / active_project).resolve()
         return target, active_project
+
+    if active_project and configured_target is not None and target_arg == active_project:
+        return configured_target, active_project
 
     raw = Path(target_arg)
     if raw.is_absolute():

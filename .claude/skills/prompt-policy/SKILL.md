@@ -42,7 +42,7 @@
 ### doc_creation
 
 ```text
-质量约束：创建或修改文档前先使用 doc-template 判断文档类型与归属位置，并输出 `[DOC-TEMPLATE]` 块；框架级文档放 root docs/，项目执行文档放 projects/<PROJECT>/docs/，任务细节放 docs/sub_docs/；文档正文默认尽可能使用中文，专业术语/API/代码/命令/路径保留原文；保持既有格式和命名风格；不得把生成视图当作真相源；写完后运行 doc-template validate。
+质量约束：创建或修改文档前先使用 doc-template 判断文档类型与归属位置，并输出 `[DOC-TEMPLATE]` 块；框架级文档放 root docs/，项目执行文档放 <PROJECT_ROOT>/docs/（PROJECT_PATH 优先），任务细节放 <PROJECT_ROOT>/docs/sub_docs/；workspace 子项目不得把文档混写到 workspace 根；文档正文默认尽可能使用中文，专业术语/API/代码/命令/路径保留原文；保持既有格式和命名风格；不得把生成视图当作真相源；写完后运行 doc-template validate。
 ```
 
 辅助命令：

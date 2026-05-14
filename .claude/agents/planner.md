@@ -62,4 +62,9 @@
 ---
 
 ## 移交给 Implementer
-输出计划后，读取 `.claude/agents/implementer.md`，按批次开始实现。
+
+输出计划后，先执行 `.claude/hooks/challenge-gate/HOOK.md`：
+
+- 若 Challenger 返回 `pass` 或 `pass_with_risk`，读取 `.claude/agents/implementer.md`，按批次开始实现。
+- 若返回 `rework`，先修正依赖图、批次、风险或验收门禁。
+- 若返回 `ask_user`，先向用户澄清影响计划方向的问题。

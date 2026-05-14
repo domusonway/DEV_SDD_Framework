@@ -69,6 +69,7 @@ python3 .claude/tools/memory-search/run.py "<用户任务描述>" --project <PRO
 | 验证阶段 | VALIDATE / 验收 / 检查实现 / 契约 / 接口一致性 |
 | Context Budget | budget / 上下文 / session交接 / handoff |
 | 框架改进 | candidate / 候选 / skill-review / 规则提升 |
+| 质疑复核 | 质疑者 / 质疑 / 反思 / 复核 / 长任务 / 复杂任务 / H模式 / Planner / Reviewer / RED > 2 / stuck-detector / 输出结论 / 最优解 / 交付就绪 |
 
 ### Step 2: 按规则自动加载
 
@@ -87,6 +88,7 @@ python3 .claude/tools/memory-search/run.py "<用户任务描述>" --project <PRO
 | 验证阶段 | MEM_F_I_009, .claude/skills/observe-verify/SKILL.md |
 | Context Budget | MEM_F_I_010, .claude/hooks/context-budget/HOOK.md |
 | 框架改进 | .claude/tools/skill-tracker/tracker.py（帮助） |
+| 质疑复核 | .claude/hooks/challenge-gate/HOOK.md + .claude/agents/challenger.md |
 | 无明确匹配 | 仅 CRITICAL 内联（已足够） |
 
 **加载上限：单次最多加载 4 条 IMPORTANT 记忆**
@@ -117,6 +119,7 @@ domain 与任务维度的对应关系：
 | 多线程 | concurrency |
 | HTTP 协议 | http |
 | 框架改进 | agent_workflow |
+| 质疑复核 | agent_workflow |
 
 **临时激活输出格式**（若有匹配的 `auto_attach: true` 候选）：
 

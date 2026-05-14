@@ -1,6 +1,6 @@
 # sub_docs
 
-`docs/sub_docs/` stores framework-level task details. Active project execution details belong under `projects/<PROJECT>/docs/sub_docs/`.
+`docs/sub_docs/` stores framework-level task details. Active project execution details belong under `<PROJECT_ROOT>/docs/sub_docs/` (`PROJECT_PATH` when configured, otherwise `projects/<PROJECT>`).
 
 Standard directories:
 

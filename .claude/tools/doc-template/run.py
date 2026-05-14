@@ -129,17 +129,23 @@ def render_template(template: dict[str, Any], project: str | None, module: str |
     topic_label = slugify(topic or module_label or template["id"])
     filename_pattern = str(meta.get("filename_pattern") or f"{template['id']}.md")
     filename = filename_pattern.replace("<module>", slugify(module_label)).replace("<topic>", topic_label).replace("<PROJECT>", project_label)
-    default_dir = str(meta.get("default_dir") or "docs")
-    default_dir = default_dir.replace("<PROJECT>", project_label).replace("<module>", slugify(module_label)).replace("<topic>", topic_label)
-    suggested_path = workflow_cli_common.rel_path((ROOT / default_dir / filename).resolve(), ROOT)
+    default_dir_template = str(meta.get("default_dir") or "docs")
+    if project_root is not None and default_dir_template.startswith("projects/<PROJECT>"):
+        inner_dir_template = default_dir_template.removeprefix("projects/<PROJECT>").lstrip("/")
+        target_dir = project_root / inner_dir_template.replace("<module>", slugify(module_label)).replace("<topic>", topic_label)
+    else:
+        default_dir = default_dir_template.replace("<PROJECT>", project_label).replace("<module>", slugify(module_label)).replace("<topic>", topic_label)
+        target_dir = ROOT / default_dir
+    suggested_path = workflow_cli_common.rel_path((target_dir / filename).resolve(), ROOT)
+    project_rel = workflow_cli_common.rel_path(project_root, ROOT) if project_root is not None else f"projects/{project_label}"
     doc_title = title or f"{module_label} · {template['id']}" if module else template["id"]
     body = template["body"]
     replacements = {
         "<TITLE>": doc_title,
         "<PROJECT>": project_label,
         "<MODULE>": module_label,
-        "<CODE_PATH>": f"projects/{project_label}/modules/**/{module_label}",
-        "<SPEC_PATH>": f"projects/{project_label}/modules/**/{module_label}/SPEC.md",
+        "<CODE_PATH>": f"{project_rel}/modules/**/{module_label}",
+        "<SPEC_PATH>": f"{project_rel}/modules/**/{module_label}/SPEC.md",
     }
     for key, value in replacements.items():
         body = body.replace(key, value)

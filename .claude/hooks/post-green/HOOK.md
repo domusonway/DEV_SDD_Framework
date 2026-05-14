@@ -24,25 +24,30 @@ bash .claude/hooks/post-green/run.sh
 
 执行：读取 `.claude/skills/memory-update/SKILL.md`，并显式输出 `no_sedimentation | project_memory | framework_candidate` 三选一决策。
 
-### Step 4: 运行 hook-observer（新增）
+### Step 4: 运行 challenge-gate（新增）
+
+当本轮属于长任务、复杂任务、跨模块批次，或准备输出“完成/交付就绪/最优/最终结论”时，读取 `.claude/hooks/challenge-gate/HOOK.md`；命中后读取 `.claude/agents/challenger.md`。若 Challenger 返回 `rework` 或 `ask_user`，不得继续输出交付结论。
+
+### Step 5: 运行 hook-observer（新增）
 ```bash
 python3 .claude/hooks/hook-observer/observe.py ${PROJECT}
 ```
 检测本模块实现过程中是否存在 Hook 漏触发信号，生成 HOOK_CAND 候选。
 
-### Step 5: 运行 tool health check（新增）
+### Step 6: 运行 tool health check（新增）
 ```bash
 bash .claude/hooks/verify-rules/check_tools.sh ${PROJECT}
 ```
 TOOL_SIGNAL 输出写入当前 session，供 meta-skill-agent 后续读取。
 
-### Step 6: 输出完成报告
+### Step 7: 输出完成报告
 ```
 [POST-GREEN 完成]
 测试状态：X/X PASS
 验收结果：✅ / ⚠️ [细节]
 沉淀决策：<no_sedimentation | project_memory | framework_candidate>
 记忆动作：<无 / N条新记忆写入 projects/<n>/memory/ / N条候选写入 memory/candidates/>
+challenge-gate：[未触发 / pass / pass_with_risk / rework / ask_user]
 hook-observer：[无候选 / N条候选写入 candidates/]
 tool-health：[正常 / N个警告，见 TOOL_SIGNAL]
 下一步：[继续下一模块 / 项目交付]

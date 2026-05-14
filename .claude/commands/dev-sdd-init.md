@@ -10,7 +10,7 @@
 ## 定位
 - `/DEV_SDD:init` 是**项目引导初始化命令**：它从目标项目的 `docs/CONTEXT.md` 派生最小可执行文档集。
 - 在共享命令契约中，本命令对应逻辑命名 `INIT`。
-- 本命令只写入**项目作用域**内容：`projects/<PROJECT>/...`（或显式指定的项目根目录）；不会把 root `docs/*` 当作项目模板。
+- 本命令只写入**项目作用域**内容：`<PROJECT_ROOT>/...`（`PROJECT_PATH` 优先，或显式指定的项目根目录）；不会把 root `docs/*` 当作项目模板。
 - helper CLI 负责解析 CONTEXT、生成 `docs/plan.json` 及派生文档、检查覆盖冲突，并输出 `{status,message,data}`。
 - 当前 helper 入口：`python3 .claude/tools/init/run.py [project-name-or-path] [--json] [--dry-run] [--confirm-overwrite <token>]`。
 

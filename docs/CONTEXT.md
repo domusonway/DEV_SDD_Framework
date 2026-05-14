@@ -22,11 +22,12 @@ Examples:
 - `docs/PLAN.md` → framework planning model and planning ownership rules
 - `docs/TODO.md` → framework backlog model and framework maintenance work
 
-### `projects/<PROJECT>/docs/*` = active-project execution docs
+### `<PROJECT_ROOT>/docs/*` = active-project execution docs
 
-When a concrete project is active, its execution-facing documents live under `projects/<PROJECT>/docs/*`.
+When a concrete project is active, its execution-facing documents live under `<PROJECT_ROOT>/docs/*`, where `<PROJECT_ROOT>` resolves to `PROJECT_PATH` when configured and otherwise to `projects/<PROJECT>`.
 That is where project-specific context, generated plan views, task sub-docs, specs, and delivery notes belong.
-Task-level implementation details should be placed in `projects/<PROJECT>/docs/sub_docs/*` and referenced from `projects/<PROJECT>/docs/plan.json`.
+Task-level implementation details should be placed in `<PROJECT_ROOT>/docs/sub_docs/*` and referenced from `<PROJECT_ROOT>/docs/plan.json`.
+For workspace-style projects, the workspace root is only a container; each child project owns its own docs, memory, sessions, challenges, and result artifacts under its `PROJECT_PATH`.
 
 The startup protocol in `AGENTS.md` remains authoritative for loading context:
 - first load framework memory and framework rules
@@ -58,7 +59,7 @@ DEV SDD Framework
 ├── .claude/skills/*              # reusable execution skills
 ├── .claude/hooks/*               # automatic safeguards and verification hooks
 ├── .claude/agents/*              # H-mode agent coordination roles
-└── projects/<PROJECT>/...        # isolated project execution space
+└── <PROJECT_ROOT>/...            # isolated project execution space; PROJECT_PATH wins
     ├── CLAUDE.md
     ├── docs/*
     ├── memory/*
@@ -85,7 +86,7 @@ This context document is the framework-side reference for command and tool behav
 
 It should stay aligned with:
 - `AGENTS.md` startup protocol language
-- project ownership under `projects/<PROJECT>/docs/*`
+- project ownership under `<PROJECT_ROOT>/docs/*`
 - command/tool behavior that reads, reconciles, or generates project execution state from `plan.json`
 
 If a command updates project execution status, it should do so in the project space and according to `plan.json` ownership, not by repurposing root framework docs as project templates.
@@ -112,8 +113,8 @@ This matches the existing helper/tool pattern already visible in:
 ### Ownership and source of truth
 
 - `START_WORK` is primarily read-oriented. It reports context/session/plan state and follows plan precedence `plan.json` → `PLAN.md` → `IMPLEMENTATION_PLAN.md`.
-- `UPDATE_TODO` is retained as a stable-ID maintenance helper for `projects/<PROJECT>/docs/plan.json`; it does not own project task view documents.
-- `INIT`, `REDEFINE`, and `FIX` must preserve the same ownership boundary: root `docs/*` define framework rules, while project execution artifacts live under `projects/<PROJECT>/docs/*`.
+- `UPDATE_TODO` is retained as a stable-ID maintenance helper for `<PROJECT_ROOT>/docs/plan.json`; it does not own project task view documents.
+- `INIT`, `REDEFINE`, and `FIX` must preserve the same ownership boundary: root `docs/*` define framework rules, while project execution artifacts live under `<PROJECT_ROOT>/docs/*`.
 - No command may treat root `docs/PLAN.md` or root `docs/TODO.md` as the active-project execution source of truth.
 
 ### Confirmation policy

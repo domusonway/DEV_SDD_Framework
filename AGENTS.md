@@ -11,11 +11,12 @@
 Step 1: 读取 memory/INDEX.md          → 加载框架 CRITICAL 规则（60秒内扫完）
 
 Step 2: 检查下方「当前激活项目」字段
-        有值 → 读取 projects/<PROJECT>/CLAUDE.md
-               读取 projects/<PROJECT>/memory/INDEX.md
+        有 PROJECT_PATH → 以 PROJECT_PATH 作为项目根，读取 <PROJECT_ROOT>/CLAUDE.md
+                         读取 <PROJECT_ROOT>/memory/INDEX.md
+        仅有 PROJECT → 以 projects/<PROJECT> 作为项目根
         无值 → 跳过，纯框架模式
 
-Step 2.5: 【新增】检查 projects/<PROJECT>/memory/sessions/ 最新文件
+Step 2.5: 【新增】检查 <PROJECT_ROOT>/memory/sessions/ 最新文件
           若存在 status: in-progress 的文件 →
               输出 [RESUME] 标记（格式见 PROJECT_RULES.md 规则一）
               并告知用户上次任务、中断点、下次继续
@@ -39,11 +40,12 @@ Step 3: 输出确认语：
 
 ```
 PROJECT: agentplatform
-PROJECT_PATH: projects/agentplatform
+PROJECT_PATH: projects/agentplatform_workspace/agentplatform
 ```
 
 > 切换项目：修改上方 PROJECT 字段，或使用 /project:switch
 > 工作启动：优先使用 /DEV_SDD:start-work（可选 `<project-name>`）统一加载上下文、判断续接状态并选择下一步动作
+> 路径边界：`PROJECT` 是逻辑名；`PROJECT_PATH` 是真实子项目根。workspace 类型项目必须让每个子项目把 docs/memory/sessions/challenges/res 等中间数据写入自己的 `PROJECT_PATH`，不得混写到 workspace 根或 `projects/<PROJECT>` fallback。
 
 ***
 
@@ -65,7 +67,7 @@ PROJECT_PATH: projects/agentplatform
 | 当前任务               | 读取路径                                         |
 | ------------------ | -------------------------------------------- |
 | 任何任务开始             | `memory/INDEX.md`                            |
-| 查看任务级实现细节         | `projects/<PROJECT>/docs/sub_docs/`          |
+| 查看任务级实现细节         | `<PROJECT_ROOT>/docs/sub_docs/`（`PROJECT_PATH` 优先） |
 | 任务描述后自动匹配记忆        | `.claude/skills/context-probe/SKILL.md`      |
 | 任务大类质量约束注入          | `.claude/skills/prompt-policy/SKILL.md`      |
 | 收到开发任务             | `.claude/skills/complexity-assess/SKILL.md`  |
@@ -78,6 +80,7 @@ PROJECT_PATH: projects/agentplatform
 | 涉及 bytes/str 错误    | `memory/domains/type_safety/INDEX.md`        |
 | TDD 流程失败/测试设计      | `memory/domains/tdd_patterns/INDEX.md`       |
 | H 模式多模块规划          | `.claude/agents/planner.md`                  |
+| 长任务/复杂任务/交付结论前 | `.claude/hooks/challenge-gate/HOOK.md` + `.claude/agents/challenger.md` |
 | 写任何网络代码后           | `.claude/hooks/network-guard/HOOK.md`（立即执行）  |
 | RED 超过 2 次         | `.claude/hooks/stuck-detector/HOOK.md`（立即执行） |
 | 所有测试 GREEN         | `.claude/hooks/post-green/HOOK.md`（立即执行）     |
@@ -104,6 +107,7 @@ PROJECT_PATH: projects/agentplatform
 | 写任何含 recv/send/socket 代码后 | `network-guard`     | MEM\_F\_C\_004/005 验证 |
 | RED 状态连续超过 2 次            | `stuck-detector`    | 防止在错误方向无限循环           |
 | 所有测试变 GREEN               | `post-green`        | 触发验证 + Sedimentation Decision + hook-observer |
+| 长任务/复杂任务/交付结论前        | `challenge-gate`    | 防止需求漂移、证据不足或“最优解”过度确认 |
 | 任意决策完成 / 对话结束前            | `session-snapshot`  | 过程记录不依赖流程走完           |
 | **项目交付后（新增）**             | `hook-observer`     | 检测 Hook 触发健康度          |
 | **项目交付后（新增）**             | `permission-auditor`| 检测权限边界健康度             |
@@ -115,6 +119,7 @@ PROJECT_PATH: projects/agentplatform
 
 ```
 .claude/agents/planner.md         → 依赖拓扑分析，输出实现批次
+.claude/agents/challenger.md      → 对计划、批次和交付结论做产品/验收/用户视角质疑
 .claude/agents/implementer.md     → 按批次执行 TDD（含 hook-observer 集成）
 .claude/agents/reviewer.md        → 代码复审（含 hook-observer + test-sync）
 .claude/agents/memory-keeper.md   → 项目完成后沉淀记忆 + 激活 Meta-Skill Loop
@@ -156,8 +161,8 @@ skill-changelog.md 版本追踪
 ## 项目 ↔ 框架 记忆边界
 
 ```
-写入 projects/<n>/memory/sessions/  ← 会话过程快照（按领域命名，时间写入 frontmatter）
-写入 projects/<n>/memory/           ← 此项目特有，换项目不适用
+写入 <PROJECT_ROOT>/memory/sessions/ ← 会话过程快照（PROJECT_PATH 优先，按领域命名，时间写入 frontmatter）
+写入 <PROJECT_ROOT>/memory/          ← 此项目特有，换项目不适用；workspace 子项目互不混写
 写入 memory/candidates/             ← 候选池（人工审核后升级至框架）← 新增
 写入 memory/                        ← 跨项目通用，≥3个项目验证后升级至此
 ```

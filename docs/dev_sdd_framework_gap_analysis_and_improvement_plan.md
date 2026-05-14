@@ -26,7 +26,7 @@ The framework already has strong foundations:
 2. Layered memory: framework memory, domain memory, project memory, session snapshots, and candidates are separated.
 3. Meta-Skill Loop: candidates can be created, reviewed, promoted, and synchronized with tests.
 4. Session continuity: `start-work`, `session-snapshot`, and `HANDOFF.json` provide resume primitives.
-5. Project execution truth: active project work is expected to flow through `projects/<PROJECT>/docs/plan.json`.
+5. Project execution truth: active project work is expected to flow through `<PROJECT_ROOT>/docs/plan.json` (`PROJECT_PATH` first, then `projects/<PROJECT>`).
 
 However, the current implementation still behaves more like a structured workflow than a mature self-improving agent.
 

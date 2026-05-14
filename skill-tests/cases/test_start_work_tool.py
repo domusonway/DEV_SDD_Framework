@@ -49,6 +49,23 @@ def parse_json_output(result, name):
     return data
 
 
+def _active_project_fields() -> tuple[str, str]:
+    project = ""
+    project_path = ""
+    for candidate in [FRAMEWORK_ROOT / "AGENTS.md", FRAMEWORK_ROOT / "CLAUDE.md"]:
+        if not candidate.exists():
+            continue
+        for line in candidate.read_text(encoding="utf-8").splitlines():
+            stripped = line.strip()
+            if stripped.startswith("PROJECT:") and not project:
+                project = stripped.split(":", 1)[1].strip()
+            if stripped.startswith("PROJECT_PATH:") and not project_path:
+                project_path = stripped.split(":", 1)[1].strip()
+        if project:
+            break
+    return project, project_path
+
+
 def _mk_project(name: str):
     projects_dir = FRAMEWORK_ROOT / "projects"
     p = Path(tempfile.mkdtemp(prefix=f"{name}_", dir=str(projects_dir)))
@@ -109,18 +126,33 @@ def test_json_output_schema_on_active_project():
 def test_no_arg_uses_active_project_from_framework_context():
     res = run_tool("--json")
     data = parse_json_output(res, "start-work active project")
-    expected = ""
-    for candidate in [FRAMEWORK_ROOT / "AGENTS.md", FRAMEWORK_ROOT / "CLAUDE.md"]:
-        if not candidate.exists():
-            continue
-        for line in candidate.read_text(encoding="utf-8").splitlines():
-            if line.strip().startswith("PROJECT:"):
-                expected = line.split(":", 1)[1].strip()
-                break
-        if expected:
-            break
+    expected, _project_path = _active_project_fields()
     assert expected, "测试前提失败：未在 AGENTS.md/CLAUDE.md 中检测到 PROJECT"
     assert data["data"].get("project") == expected, "无参数时应使用当前激活项目"
+
+
+def test_no_arg_uses_project_path_from_framework_context_for_workspace_project():
+    expected_project, expected_path = _active_project_fields()
+    assert expected_project and expected_path, "测试前提失败：当前框架应声明 PROJECT 和 PROJECT_PATH"
+
+    result = run_tool("--json")
+    data = parse_json_output(result, "start-work active project path")
+
+    assert data["data"].get("project") == expected_project
+    assert data["data"].get("project_path") == expected_path
+    context_files = data["data"].get("context_files", {}).get("project") or []
+    assert any(path.startswith(expected_path.rstrip("/") + "/") for path in context_files), context_files
+
+
+def test_explicit_active_project_name_resolves_to_configured_project_path():
+    expected_project, expected_path = _active_project_fields()
+    assert expected_project and expected_path, "测试前提失败：当前框架应声明 PROJECT 和 PROJECT_PATH"
+
+    result = run_tool(expected_project, "--json")
+    data = parse_json_output(result, "start-work explicit active project")
+
+    assert data["data"].get("project") == expected_project
+    assert data["data"].get("project_path") == expected_path
 
 
 def test_explicit_project_override_and_missing_data_degrade_gracefully():
@@ -335,6 +367,8 @@ if __name__ == "__main__":
         test_help_contains_usage_and_example,
         test_json_output_schema_on_active_project,
         test_no_arg_uses_active_project_from_framework_context,
+        test_no_arg_uses_project_path_from_framework_context_for_workspace_project,
+        test_explicit_active_project_name_resolves_to_configured_project_path,
         test_explicit_project_override_and_missing_data_degrade_gracefully,
         test_plan_priority_prefers_plan_json_then_markdown_fallbacks,
         test_session_state_prefers_handoff_then_in_progress_session,

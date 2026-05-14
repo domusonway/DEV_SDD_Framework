@@ -1,8 +1,16 @@
 #!/usr/bin/env bash
 set -eu
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+FRAMEWORK_ROOT="$(cd "${SCRIPT_DIR}/../../../" && pwd)"
 PROJECT_ROOT="${1:-.}"
 cd "$PROJECT_ROOT"
+
+if [ -f "scripts/postgres_test_env.sh" ]; then
+    source "scripts/postgres_test_env.sh"
+    bootstrap_postgres_test_env
+    export HARNESS_REQUIRE_POSTGRES_TESTS="${HARNESS_REQUIRE_POSTGRES_TESTS:-1}"
+fi
 
 echo "=== POST-GREEN 验证 ==="
 echo ""
@@ -26,7 +34,7 @@ else
     echo "✅ 无裸异常捕获"
 fi
 
-todo_count=$(grep -rn "TODO\|FIXME\|HACK" modules/ 2>/dev/null | wc -l || echo 0)
+todo_count=$({ grep -rn "TODO\|FIXME\|HACK" modules/ 2>/dev/null || true; } | wc -l | tr -d ' ')
 echo "📌 遗留标记: ${todo_count} 条"
 echo ""
 
@@ -41,13 +49,12 @@ echo ""
 
 # ── Step 4: 工具健康检测，将 TOOL_SIGNAL 写入当前 session（F2 修复）──────────
 echo "📋 Step 4: 工具健康检测"
-FRAMEWORK_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../" && pwd)"
 CHECK_TOOLS="$FRAMEWORK_ROOT/.claude/hooks/verify-rules/check_tools.sh"
 SESSION_WRITE="$FRAMEWORK_ROOT/.claude/hooks/session-snapshot/write.py"
 
 if [ -f "$CHECK_TOOLS" ]; then
     # 捕获输出
-    TOOL_OUTPUT=$(bash "$CHECK_TOOLS" 2>/dev/null || true)
+    TOOL_OUTPUT=$(bash "$CHECK_TOOLS" "$(pwd)" 2>/dev/null || true)
     echo "$TOOL_OUTPUT"
 
     # 提取 TOOL_SIGNAL 行并写入当前 session checkpoint

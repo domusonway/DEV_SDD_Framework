@@ -23,16 +23,17 @@ The root `docs/PLAN.md` describes shared planning rules for the framework itself
 
 It does not hold project batches, module checklists, milestone dates, or active delivery progress.
 
-### `projects/<PROJECT>/docs/*` = project execution planning
+### `<PROJECT_ROOT>/docs/*` = project execution planning
 
-Active-project planning artifacts live under `projects/<PROJECT>/docs/*`.
+Active-project planning artifacts live under `<PROJECT_ROOT>/docs/*`, where `<PROJECT_ROOT>` is `PROJECT_PATH` when configured and otherwise `projects/<PROJECT>`.
 That is where a concrete project's structured plan, generated plan view, and any legacy plan markdown belong.
+Workspace containers do not own child-project planning state; each child project writes planning artifacts under its own `PROJECT_PATH`.
 
 At the project level:
-- `projects/<PROJECT>/docs/plan.json` holds the execution state
-- `projects/<PROJECT>/docs/sub_docs/` holds task-level analysis/implementation/validation details
-- `projects/<PROJECT>/docs/PLAN.md` is a derived or generated markdown view
-- `projects/<PROJECT>/docs/IMPLEMENTATION_PLAN.md` is a fallback legacy markdown source when structured plan data does not yet exist
+- `<PROJECT_ROOT>/docs/plan.json` holds the execution state
+- `<PROJECT_ROOT>/docs/sub_docs/` holds task-level analysis/implementation/validation details
+- `<PROJECT_ROOT>/docs/PLAN.md` is a derived or generated markdown view
+- `<PROJECT_ROOT>/docs/IMPLEMENTATION_PLAN.md` is a fallback legacy markdown source when structured plan data does not yet exist
 
 ---
 
@@ -41,7 +42,7 @@ At the project level:
 For active project work, `plan.json` is the **source of truth** and the authoritative execution plan.
 
 That means:
-- agents must read `projects/<PROJECT>/docs/plan.json` before claiming project progress when it exists
+- agents must read `<PROJECT_ROOT>/docs/plan.json` before claiming project progress when it exists
 - task state transitions must be written against `plan.json`, not inferred from markdown alone
 - generated markdown may summarize status for humans, but it must not override structured state
 - framework documentation must preserve this ownership model and must not reintroduce markdown-first planning
@@ -94,7 +95,7 @@ Current planning precedence is:
 3. `IMPLEMENTATION_PLAN.md`
 
 This matches `start-work/run.py`, which checks project planning state in that order.
-It also matches `plan-tracker/tracker.py`, which treats `projects/<PROJECT>/docs/plan.json` as the writable execution record and renders project `PLAN.md` as a read-only output.
+It also matches `plan-tracker/tracker.py`, which treats `<PROJECT_ROOT>/docs/plan.json` as the writable execution record and renders project `PLAN.md` as a read-only output.
 
 If future tools report project status, choose next work, or reconcile progress, they should follow the same precedence unless the framework rules are intentionally revised everywhere together.
 
@@ -121,4 +122,4 @@ Any framework change that weakens these rules risks reintroducing planning ambig
 - `docs/PLAN.md` defines the planning authority model within that boundary.
 - `docs/TODO.md` remains a framework maintenance backlog document and should not be repurposed as active project execution state.
 
-Together, these root docs describe the framework's governance model; project execution remains under `projects/<PROJECT>/docs/*`.
+Together, these root docs describe the framework's governance model; project execution remains under `<PROJECT_ROOT>/docs/*`.

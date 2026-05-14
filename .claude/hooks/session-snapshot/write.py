@@ -15,6 +15,7 @@ session-snapshot write.py
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import os
 import re
@@ -24,33 +25,47 @@ from pathlib import Path
 from typing import Any
 
 
+TOOLS_ROOT = Path(__file__).resolve().parents[2] / "tools"
+COMMON_SPEC = importlib.util.spec_from_file_location("workflow_cli_common", TOOLS_ROOT / "workflow_cli_common.py")
+assert COMMON_SPEC and COMMON_SPEC.loader
+workflow_cli_common = importlib.util.module_from_spec(COMMON_SPEC)
+COMMON_SPEC.loader.exec_module(workflow_cli_common)
+
+
 def find_project_root() -> Path:
-    """Find framework root or current project root."""
+    """Find current project root or framework root from the working directory."""
     current = Path.cwd()
     for parent in [current] + list(current.parents):
-        if (parent / "memory" / "sessions").exists() or (parent / "CLAUDE.md").exists():
+        if (parent / "memory" / "sessions").exists() and (parent / "CLAUDE.md").exists():
+            return parent
+        if (parent / "AGENTS.md").exists() and (parent / "memory" / "INDEX.md").exists():
             return parent
     return current
 
 
-def get_project_name(root: Path) -> str:
-    """Read current project from project root or framework CLAUDE.md."""
-    if (root / "memory" / "sessions").exists():
-        return root.name
+def is_project_root(root: Path) -> bool:
+    return (root / "memory" / "sessions").exists() and (root / "CLAUDE.md").exists()
 
-    claude_md = root / "CLAUDE.md"
-    if not claude_md.exists():
-        return os.environ.get("PROJECT", "unknown")
-    content = claude_md.read_text(encoding="utf-8")
-    match = re.search(r"^PROJECT:\s*(.+)$", content, re.MULTILINE)
-    if match:
-        return match.group(1).strip()
+
+def get_project_name(root: Path) -> str:
+    """Read current project from project root or framework active config."""
+    if is_project_root(root):
+        content = (root / "CLAUDE.md").read_text(encoding="utf-8") if (root / "CLAUDE.md").exists() else ""
+        match = re.search(r"^PROJECT:\s*(.+)$", content, re.MULTILINE)
+        return match.group(1).strip() if match else root.name
+
+    project = workflow_cli_common.active_project_config(root).get("project")
+    if project:
+        return project
     return os.environ.get("PROJECT", "unknown")
 
 
 def project_path(root: Path, project: str) -> Path:
-    if (root / "memory" / "sessions").exists():
+    if is_project_root(root):
         return root
+    target, _label = workflow_cli_common.resolve_target_project(project if project != "unknown" else None, root)
+    if target is not None:
+        return target
     return root / "projects" / project
 
 

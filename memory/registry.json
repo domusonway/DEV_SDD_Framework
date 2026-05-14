@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-24T13:46:25.978048",
+  "generated_at": "2026-05-14T10:43:54.024672",
   "framework_root": "/media/ptn/748095058094CECC/workspace/linguozhu/projects/agent_team/DEV_SDD_Framework",
   "entries": [
     {
@@ -10,6 +10,7 @@
       "tags": [
         "tdd",
         "memory",
+        "hook",
         "skill",
         "agent",
         "测试"
@@ -17,7 +18,7 @@
       "version": "",
       "recommended": true,
       "created": "",
-      "last_updated": "2026-04-24"
+      "last_updated": "2026-05-13"
     },
     {
       "id": "context-probe",
@@ -71,7 +72,24 @@
       "version": "",
       "recommended": true,
       "created": "",
-      "last_updated": "2026-04-24"
+      "last_updated": "2026-05-13"
+    },
+    {
+      "id": "doc-template",
+      "type": "skill",
+      "path": ".claude/skills/doc-template/SKILL.md",
+      "title": "doc-template",
+      "tags": [
+        "red",
+        "skill",
+        "规则",
+        "bug",
+        "validate"
+      ],
+      "version": "",
+      "recommended": true,
+      "created": "",
+      "last_updated": "2026-05-14"
     },
     {
       "id": "memory-update",
@@ -92,7 +110,7 @@
       "version": "",
       "recommended": true,
       "created": "",
-      "last_updated": "2026-04-24"
+      "last_updated": "2026-05-14"
     },
     {
       "id": "observe-verify",
@@ -118,7 +136,27 @@
       "version": "",
       "recommended": true,
       "created": "",
-      "last_updated": "2026-04-10"
+      "last_updated": "2026-05-13"
+    },
+    {
+      "id": "prompt-policy",
+      "type": "skill",
+      "path": ".claude/skills/prompt-policy/SKILL.md",
+      "title": "prompt-policy",
+      "tags": [
+        "tdd",
+        "red",
+        "memory",
+        "skill",
+        "候选",
+        "规则",
+        "测试",
+        "validate"
+      ],
+      "version": "",
+      "recommended": true,
+      "created": "",
+      "last_updated": "2026-05-14"
     },
     {
       "id": "sub-agent-isolation",
@@ -136,7 +174,7 @@
       "version": "",
       "recommended": true,
       "created": "",
-      "last_updated": "2026-04-10"
+      "last_updated": "2026-05-13"
     },
     {
       "id": "tdd-cycle",
@@ -162,7 +200,7 @@
       "version": "",
       "recommended": true,
       "created": "",
-      "last_updated": "2026-04-10"
+      "last_updated": "2026-05-13"
     },
     {
       "id": "validate-output",
@@ -186,7 +224,29 @@
       "version": "",
       "recommended": true,
       "created": "",
-      "last_updated": "2026-04-24"
+      "last_updated": "2026-05-13"
+    },
+    {
+      "id": "challenge-gate",
+      "type": "hook",
+      "path": ".claude/hooks/challenge-gate/HOOK.md",
+      "title": "challenge-gate",
+      "tags": [
+        "red",
+        "green",
+        "memory",
+        "hook",
+        "skill",
+        "agent",
+        "候选",
+        "规则",
+        "测试",
+        "validate"
+      ],
+      "version": "",
+      "recommended": true,
+      "created": "",
+      "last_updated": "2026-05-14"
     },
     {
       "id": "context-budget",
@@ -206,7 +266,7 @@
       "version": "",
       "recommended": true,
       "created": "",
-      "last_updated": "2026-04-10"
+      "last_updated": "2026-05-13"
     },
     {
       "id": "hook-observer",
@@ -234,7 +294,7 @@
       "version": "",
       "recommended": true,
       "created": "",
-      "last_updated": "2026-04-10"
+      "last_updated": "2026-05-13"
     },
     {
       "id": "network-guard",
@@ -253,7 +313,7 @@
       "version": "",
       "recommended": true,
       "created": "",
-      "last_updated": "2026-04-10"
+      "last_updated": "2026-05-13"
     },
     {
       "id": "permission-auditor",
@@ -271,7 +331,7 @@
       "version": "",
       "recommended": true,
       "created": "",
-      "last_updated": "2026-04-10"
+      "last_updated": "2026-05-14"
     },
     {
       "id": "post-green",
@@ -294,7 +354,7 @@
       "version": "",
       "recommended": true,
       "created": "",
-      "last_updated": "2026-04-10"
+      "last_updated": "2026-05-13"
     },
     {
       "id": "session-snapshot",
@@ -314,7 +374,7 @@
       "version": "",
       "recommended": true,
       "created": "",
-      "last_updated": "2026-04-24"
+      "last_updated": "2026-05-14"
     },
     {
       "id": "stuck-detector",
@@ -337,7 +397,7 @@
       "version": "",
       "recommended": true,
       "created": "",
-      "last_updated": "2026-04-24"
+      "last_updated": "2026-05-13"
     },
     {
       "id": "test-sync",
@@ -354,7 +414,7 @@
       "version": "",
       "recommended": true,
       "created": "",
-      "last_updated": "2026-04-10"
+      "last_updated": "2026-05-13"
     },
     {
       "id": "agents",
@@ -376,7 +436,7 @@
       "version": "",
       "recommended": true,
       "created": "",
-      "last_updated": "2026-04-10"
+      "last_updated": "2026-05-13"
     },
     {
       "id": "MEM_F_I_001",
@@ -394,7 +454,7 @@
       "version": "",
       "recommended": true,
       "created": "2026-03-03",
-      "last_updated": "2026-04-10"
+      "last_updated": "2026-05-13"
     },
     {
       "id": "MEM_F_I_002",
@@ -414,7 +474,7 @@
       "version": "",
       "recommended": true,
       "created": "2026-03-03",
-      "last_updated": "2026-04-10"
+      "last_updated": "2026-05-13"
     },
     {
       "id": "MEM_F_I_003",
@@ -436,7 +496,7 @@
       "version": "",
       "recommended": true,
       "created": "2026-03-03",
-      "last_updated": "2026-04-10"
+      "last_updated": "2026-05-13"
     },
     {
       "id": "MEM_F_I_004",
@@ -455,7 +515,7 @@
       "version": "",
       "recommended": true,
       "created": "2026-03-03",
-      "last_updated": "2026-04-10"
+      "last_updated": "2026-05-13"
     },
     {
       "id": "MEM_F_I_005",
@@ -472,7 +532,7 @@
       "version": "",
       "recommended": true,
       "created": "2026-03-03",
-      "last_updated": "2026-04-10"
+      "last_updated": "2026-05-13"
     },
     {
       "id": "MEM_F_I_006",
@@ -491,7 +551,7 @@
       "version": "",
       "recommended": true,
       "created": "2026-03-03",
-      "last_updated": "2026-04-10"
+      "last_updated": "2026-05-13"
     },
     {
       "id": "MEM_F_I_007",
@@ -507,7 +567,7 @@
       "version": "",
       "recommended": true,
       "created": "2026-03-03",
-      "last_updated": "2026-04-10"
+      "last_updated": "2026-05-13"
     },
     {
       "id": "MEM_F_C_001",
@@ -524,7 +584,7 @@
       "version": "",
       "recommended": true,
       "created": "2026-03-03",
-      "last_updated": "2026-04-10"
+      "last_updated": "2026-05-13"
     },
     {
       "id": "MEM_F_C_002",
@@ -543,7 +603,7 @@
       "version": "",
       "recommended": true,
       "created": "2026-03-03",
-      "last_updated": "2026-04-10"
+      "last_updated": "2026-05-13"
     },
     {
       "id": "MEM_F_C_003",
@@ -563,7 +623,7 @@
       "version": "",
       "recommended": true,
       "created": "2026-03-03",
-      "last_updated": "2026-04-10"
+      "last_updated": "2026-05-13"
     },
     {
       "id": "MEM_F_C_004",
@@ -582,7 +642,7 @@
       "version": "",
       "recommended": true,
       "created": "2026-03-03",
-      "last_updated": "2026-04-10"
+      "last_updated": "2026-05-13"
     },
     {
       "id": "MEM_F_C_005",
@@ -600,7 +660,7 @@
       "version": "",
       "recommended": true,
       "created": "2026-03-03",
-      "last_updated": "2026-04-10"
+      "last_updated": "2026-05-13"
     },
     {
       "id": "concurrency",
@@ -620,7 +680,7 @@
       "version": "",
       "recommended": true,
       "created": "",
-      "last_updated": "2026-04-10"
+      "last_updated": "2026-05-13"
     },
     {
       "id": "http",
@@ -636,7 +696,7 @@
       "version": "",
       "recommended": true,
       "created": "",
-      "last_updated": "2026-04-10"
+      "last_updated": "2026-05-13"
     },
     {
       "id": "tdd_patterns",
@@ -659,7 +719,7 @@
       "version": "",
       "recommended": true,
       "created": "",
-      "last_updated": "2026-04-10"
+      "last_updated": "2026-05-13"
     },
     {
       "id": "type_safety",
@@ -680,7 +740,7 @@
       "version": "",
       "recommended": true,
       "created": "",
-      "last_updated": "2026-04-10"
+      "last_updated": "2026-05-13"
     }
   ]
 }

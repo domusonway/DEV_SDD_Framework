@@ -15,13 +15,13 @@
 ## 定位
 - `/DEV_SDD:redefine` 是**计划重定义命令**：用于根据项目最新规划输入重建执行计划。
 - 在共享命令契约中，本命令对应逻辑命名 `REDEFINE`。
-- `projects/<PROJECT>/docs/plan.json` 始终是执行状态真相源，`docs/sub_docs/` 存放任务细节，`docs/PLAN.md` 仅为派生只读文档。
+- `<PROJECT_ROOT>/docs/plan.json` 始终是执行状态真相源，`docs/sub_docs/` 存放任务细节，`docs/PLAN.md` 仅为派生只读文档；`PROJECT_PATH` 优先于 `projects/<PROJECT>`。
 - helper CLI 负责读取项目输入、计算计划变化、按固定顺序更新文件，并输出 `{status,message,data}`。
 - 当前 helper 入口：`python3 .claude/tools/redefine/run.py [project-name-or-path] [--json] [--dry-run] [--alias REDEFIND]`。
 
 ## 上游输入
 1. 目标项目根目录
-2. `projects/<PROJECT>/docs/CONTEXT.md`（或显式目标路径下 `docs/CONTEXT.md`）
+2. `<PROJECT_ROOT>/docs/CONTEXT.md`（或显式目标路径下 `docs/CONTEXT.md`）
 3. 目标项目已有 `docs/plan.json`（用于保留未变模块状态并计算变化）
 
 ## 下游派生与传播顺序

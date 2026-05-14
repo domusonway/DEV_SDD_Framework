@@ -10,9 +10,9 @@ memory-keeper 完成后自动激活，或手动执行 `/project:skill-review`。
 ---
 
 ## 输入源
-- `projects/<PROJECT>/memory/sessions/` — 所有会话快照
-- `projects/<PROJECT>/memory/INDEX.md` — Bug 经验表、设计决策表
-- `projects/<PROJECT>/docs/PLAN.md` — 批次完成记录，含 `[~]` 跳过标记
+- `<PROJECT_ROOT>/memory/sessions/` — 所有会话快照（`PROJECT_PATH` 优先）
+- `<PROJECT_ROOT>/memory/INDEX.md` — Bug 经验表、设计决策表
+- `<PROJECT_ROOT>/docs/PLAN.md` — 批次完成记录，含 `[~]` 跳过标记
 - `.claude/skills/**/*.md` — 现有正式规则（对比用）
 - `.claude/hooks/**/*.md` — 现有 Hook 触发条件（对比用）
 - `.claude/agents/*.md` — 现有 Agent 约束（对比用）

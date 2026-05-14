@@ -50,6 +50,48 @@ def test_tool_classifies_tdd_and_type_memory():
     assert "MEM_F_C_003" in data["auto_load"] or "MEM_F_C_002" in data["auto_load"]
 
 
+def test_tool_classifies_challenger_for_complex_delivery():
+    result = subprocess.run(
+        [sys.executable, str(TOOL_PATH), "长任务 复杂任务 输出最终结论前需要质疑者复核", "--json"],
+        capture_output=True,
+        text=True,
+        cwd=str(FRAMEWORK_ROOT),
+    )
+    assert result.returncode == 0, result.stderr
+    data = json.loads(result.stdout)["data"]
+    assert "质疑复核" in data["matched_dimensions"]
+    assert ".claude/agents/challenger.md" in data["auto_load"]
+
+
+def test_tool_classifies_challenger_for_planner_handoff():
+    result = subprocess.run(
+        [sys.executable, str(TOOL_PATH), "H模式 Planner 输出实现计划后准备交给 Implementer", "--json"],
+        capture_output=True,
+        text=True,
+        cwd=str(FRAMEWORK_ROOT),
+    )
+    assert result.returncode == 0, result.stderr
+    data = json.loads(result.stdout)["data"]
+    assert "质疑复核" in data["matched_dimensions"]
+    assert ".claude/hooks/challenge-gate/HOOK.md" in data["auto_load"]
+    assert ".claude/agents/challenger.md" in data["auto_load"]
+
+
+def test_tool_prioritizes_challenger_for_red_over_two():
+    result = subprocess.run(
+        [sys.executable, str(TOOL_PATH), "RED > 2 stuck-detector 后准备继续当前修复方向", "--json"],
+        capture_output=True,
+        text=True,
+        cwd=str(FRAMEWORK_ROOT),
+    )
+    assert result.returncode == 0, result.stderr
+    data = json.loads(result.stdout)["data"]
+    assert "TDD 问题" in data["matched_dimensions"]
+    assert "质疑复核" in data["matched_dimensions"]
+    assert ".claude/hooks/challenge-gate/HOOK.md" in data["auto_load"]
+    assert ".claude/agents/challenger.md" in data["auto_load"]
+
+
 def test_tool_records_loaded_memory_usage():
     project = make_project()
     try:
@@ -98,6 +140,9 @@ if __name__ == "__main__":
     tests = [
         test_tool_exists_and_syntax_ok,
         test_tool_classifies_tdd_and_type_memory,
+        test_tool_classifies_challenger_for_complex_delivery,
+        test_tool_classifies_challenger_for_planner_handoff,
+        test_tool_prioritizes_challenger_for_red_over_two,
         test_tool_records_loaded_memory_usage,
         test_start_work_includes_context_probe_for_task_text,
         test_skill_references_executable_helper_and_memory_usage,

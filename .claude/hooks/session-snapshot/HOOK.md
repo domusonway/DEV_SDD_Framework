@@ -6,10 +6,10 @@
 ## 文件路径规则
 
 ```
-projects/<PROJECT>/memory/sessions/<domain-or-task-slug>.md
+<PROJECT_ROOT>/memory/sessions/<domain-or-task-slug>.md
 ```
 
-每次对话对应一个文件。文件名按任务领域/任务名 slug 命名，时间写入 frontmatter 字段。
+`<PROJECT_ROOT>` 解析优先级：`PROJECT_PATH`（真实子项目根）→ `projects/<PROJECT>`。workspace 类型项目必须写入对应子项目自己的 `PROJECT_PATH`，不得写入 workspace 根或 fallback 路径。每次对话对应一个文件。文件名按任务领域/任务名 slug 命名，时间写入 frontmatter 字段。
 
 ---
 
@@ -47,6 +47,7 @@ updated_at: YYYY-MM-DD HH:MM
 - 做出接口或架构设计决策
 - 解决了 RED > 1 次的 Bug
 - 完成 SPEC.md 或 CONTEXT.md 的撰写
+- 执行 challenge-gate 或 Challenger 得出 `pass_with_risk` / `rework` / `ask_user`
 
 **执行动作**：调用 write.py 追加到当前 session 文件：
 
@@ -54,6 +55,7 @@ updated_at: YYYY-MM-DD HH:MM
 [CHECKPOINT HH:MM]
 事件: <触发事件描述>
 决策/结果: <做了什么，或得出了什么结论>
+质疑复核: <未触发 / pass / pass_with_risk / rework / ask_user>
 遇到的问题: <有则记录，无则省略>
 当前状态: <模块名 / 测试通过数 / PLAN.md 进度>
 [/CHECKPOINT]

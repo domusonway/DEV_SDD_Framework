@@ -21,7 +21,9 @@
 
 每次对话的【第一条回复】必须以以下格式之一开头，不得省略：
 
-若 projects/${PROJECT}/memory/sessions/ 下存在 status: in-progress 的文件：
+先解析项目根：若配置了 `PROJECT_PATH`，项目根为 `PROJECT_PATH`；否则为 `projects/${PROJECT}`。workspace 类型项目的子项目必须使用自己的 `PROJECT_PATH`，不得把 session/memory/docs/challenges 混写到 workspace 根。
+
+若 <PROJECT_ROOT>/memory/sessions/ 下存在 status: in-progress 的文件：
 ```
 [RESUME]
 上次任务: <task 字段内容>

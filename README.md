@@ -286,7 +286,7 @@ python3 .claude/tools/start-work/run.py <name> --json
 python3 .claude/tools/plan-tracker/tracker.py status
 python3 - <<'PY'
 from pathlib import Path
-print(Path('projects/<PROJECT>/docs/plan.json').exists())
+print(Path('<PROJECT_ROOT>/docs/plan.json').exists())
 PY
 ```
 

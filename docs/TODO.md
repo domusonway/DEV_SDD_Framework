@@ -24,9 +24,9 @@ Use this file for framework-facing work such as:
 
 This file should describe backlog items and execution guidance for the framework, not day-to-day delivery state for an active project.
 
-### `projects/<PROJECT>/docs/TODO.md` = project TODO
+### `<PROJECT_ROOT>/docs/TODO.md` = project TODO
 
-Use `projects/<PROJECT>/docs/TODO.md` for project-scoped execution notes when a specific project needs a human-readable TODO view.
+Use `<PROJECT_ROOT>/docs/TODO.md` for project-scoped execution notes when a specific project needs a human-readable TODO view. `PROJECT_PATH` wins over `projects/<PROJECT>` for workspace child projects.
 
 Project TODOs may contain runtime-oriented records such as:
 - current delivery follow-ups
@@ -41,7 +41,7 @@ Those project TODO records belong in the project space, not in the root framewor
 ## Relationship to Other Sources of Truth
 
 - Root `docs/TODO.md` does **not** own active-project execution state.
-- For active project work, `projects/<PROJECT>/docs/plan.json` remains the execution source of truth.
+- For active project work, `<PROJECT_ROOT>/docs/plan.json` remains the execution source of truth.
 - A project TODO may summarize local work or hold structured records, but it does not override project execution data.
 - Root docs define governance and backlog semantics; projects own execution details.
 
@@ -71,5 +71,5 @@ When updating this file:
 ## Notes
 
 - Root TODO = framework backlog and framework execution guidance.
-- Project TODO = `projects/<PROJECT>/docs/TODO.md` for project-local execution notes.
+- Project TODO = `<PROJECT_ROOT>/docs/TODO.md` for project-local execution notes.
 - Structured project records such as `[STUCK]` notes remain valid in project TODOs when required by hooks.

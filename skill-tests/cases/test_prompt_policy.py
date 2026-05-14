@@ -39,7 +39,7 @@ def test_review_policy_requires_comprehensive_accurate_clear_metrics():
 
 def test_doc_policy_requires_location_truth_source_and_language_policy():
     content = SKILL_PATH.read_text(encoding="utf-8")
-    for phrase in ["doc-template", "root docs/", "projects/<PROJECT>/docs/", "docs/sub_docs/", "真相源", "validate", "默认尽可能使用中文", "专业术语"]:
+    for phrase in ["doc-template", "root docs/", "<PROJECT_ROOT>/docs/", "PROJECT_PATH", "docs/sub_docs/", "真相源", "validate", "默认尽可能使用中文", "专业术语"]:
         assert phrase in content, f"文档创建约束缺少: {phrase}"
 
 

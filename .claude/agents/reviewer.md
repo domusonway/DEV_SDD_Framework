@@ -34,13 +34,20 @@ Implementer 完成所有批次后激活。
 ### 5. 执行 validate-output skill
 完整执行验收清单。
 
-### 6. 执行 hook-observer（新增）
+### 6. 执行 challenge-gate（新增）
+在输出“交付就绪”结论前执行：
+```bash
+读取 .claude/hooks/challenge-gate/HOOK.md，并在命中时读取 .claude/agents/challenger.md
+```
+若 Challenger 返回 `rework` 或 `ask_user`，不得输出交付就绪；必须先返工或澄清。
+
+### 7. 执行 hook-observer（新增）
 ```bash
 python3 .claude/hooks/hook-observer/observe.py ${PROJECT}
 ```
 检测本项目是否存在 Hook 漏触发情况，输出候选到 `memory/candidates/`。
 
-### 7. 执行 test-sync 全量检查（新增）
+### 8. 执行 test-sync 全量检查（新增）
 ```bash
 python3 .claude/hooks/test-sync/sync.py --all
 ```
@@ -65,6 +72,7 @@ python3 .claude/hooks/test-sync/sync.py --all
 - ...
 
 ### Hook 观察结果
+- challenge-gate: [未触发 / pass / pass_with_risk / rework / ask_user]
 - hook-observer: [无漏触发 / N 条候选写入 candidates/]
 - test-sync: [无缺口 / N 个桩函数已追加]
 

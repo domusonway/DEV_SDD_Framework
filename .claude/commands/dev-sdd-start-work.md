@@ -23,10 +23,10 @@
    - `memory/INDEX.md`
    - `AGENTS.md`
 3. 若当前存在激活项目，继续读取：
-   - `projects/<PROJECT>/CLAUDE.md`
-   - `projects/<PROJECT>/memory/INDEX.md`
+   - `<PROJECT_ROOT>/CLAUDE.md`（`PROJECT_PATH` 优先）
+   - `<PROJECT_ROOT>/memory/INDEX.md`
 4. 检查续接状态：
-   - 查看 `projects/<PROJECT>/memory/sessions/` 最新 session 文件
+   - 查看 `<PROJECT_ROOT>/memory/sessions/` 最新 session 文件
    - 若存在 `HANDOFF.json`，按 `.claude/hooks/context-budget/HOOK.md` 的 handoff 流程优先读取
    - 根据现有协议决定输出 `[RESUME]` 或 `[NEW SESSION]`
 5. 执行 context-probe：
@@ -68,6 +68,7 @@ Session: <RESUME | NEW SESSION>
 - 此命令负责**开始/恢复工作流**，不替代现有 `/project:*` 管理命令。
 - 若检测到缺少项目上下文，应先通过 `/project:new` 或 `/project:switch` 建立正确的项目环境。
 - 显式传入项目路径时，helper 可用于一次性 read-only 探测（例如外部项目排查）；不会写入任何项目文件，也不会自动切换激活项目。
+- workspace 类型项目中，`PROJECT` 仅作逻辑名；helper 必须将 active `PROJECT` 解析到 `PROJECT_PATH`，让每个子项目读取自己的 docs/memory/session。
 - 若用户只是要查看候选/验证/切换项目，应继续使用对应的 `/project:*` 命令。
 - helper 缺少项目/计划/session 数据时必须降级输出 warning，不允许崩溃。
 - 缺少 session/handoff 时，helper 应降级为 `NEW SESSION`；缺少计划数据时，应按 `plan.json` → `PLAN.md` → `IMPLEMENTATION_PLAN.md` 回退并在输出中注明来源。

@@ -11,6 +11,8 @@
 
 `<PROJECT_ROOT>` 解析优先级：`PROJECT_PATH`（真实子项目根）→ `projects/<PROJECT>`。workspace 类型项目必须写入对应子项目自己的 `PROJECT_PATH`，不得写入 workspace 根或 fallback 路径。每次对话对应一个文件。文件名按任务领域/任务名 slug 命名，时间写入 frontmatter 字段。
 
+资产所属项目优先：当本次任务主体文件、SPEC、实验计划、测试或证据位于 sibling 子仓库时，`<PROJECT_ROOT>` 必须切换为该 sibling 子仓库根；当前激活 `PROJECT_PATH` 只作为默认值。若目标子仓库缺少 `memory/sessions/`，允许在目标子仓库下创建；不得把 sibling 子仓库会话写入当前激活项目的 `memory/sessions/`。
+
 ---
 
 ## 触发一：对话开始（session-start）

@@ -20,14 +20,22 @@
 ### Step 2: 判断记忆归属
 
 ```
+先确定资产所属项目根 ASSET_PROJECT_ROOT：
+    │
+    ├─ 本轮主要修改/验证的文件在当前 PROJECT_PATH 下 → ASSET_PROJECT_ROOT = 当前 PROJECT_PATH
+    ├─ 本轮主要修改/验证的文件在 sibling 子仓库下 → ASSET_PROJECT_ROOT = 该 sibling 子仓库根
+    └─ 只涉及框架自身或跨项目候选 → 不写项目 memory，走 candidates 或 framework memory
+
 此经验是否适用于其他项目？
     │
-    ├─ 仅适用于本项目技术栈/需求 → 写入 <PROJECT_ROOT>/memory/
+    ├─ 仅适用于资产所属项目技术栈/需求 → 写入 <ASSET_PROJECT_ROOT>/memory/
     │
-    ├─ 可能适用但未验证 → 写入 <PROJECT_ROOT>/memory/（标注待验证）
+    ├─ 可能适用但未验证 → 写入 <ASSET_PROJECT_ROOT>/memory/（标注待验证）
     │
     └─ 跨项目验证（≥3个项目）→ 升级写入 memory/（框架记忆）
 ```
+
+`PROJECT_PATH` 是默认上下文，不是强制写入根。若任务主体属于 sibling 子仓库（例如 `agent_lab_space`），必须写入该子仓库的 `memory/`。若目标子仓库尚无 `memory/INDEX.md`，先创建最小索引；不得因为索引缺失而写入当前激活项目或 workspace 根。
 
 ### Step 2.5: 做出 Sedimentation Decision（不可跳过）
 
@@ -54,11 +62,12 @@ action: <写入的 memory 文件路径 / candidate 路径 / 无>
 
 ### Step 3: 写项目记忆文件
 
-格式：`<PROJECT_ROOT>/memory/<domain>/<topic>.md`。若配置 `PROJECT_PATH`，`<PROJECT_ROOT>` 必须使用 `PROJECT_PATH` 指向的真实子项目根；workspace 根和 `projects/<PROJECT>` fallback 不得混写子项目记忆。
+格式：`<ASSET_PROJECT_ROOT>/memory/<domain>/<topic>.md`。若配置 `PROJECT_PATH`，它只在资产属于当前激活项目时作为默认 `<ASSET_PROJECT_ROOT>`；workspace 根、`projects/<PROJECT>` fallback、以及 sibling 项目 memory 都不得混写目标子项目记忆。
 
 示例：
 - `projects/HarnessEvaluationFramework/memory/network/gateway-routing.md`
 - `projects/HarnessEvaluationFramework/memory/testing/pytest-entrypoint.md`
+- `projects/agentplatform_workspace/agent_lab_space/memory/validation/sampling-stage-gate.md`（lab-only 规则，不得写入 sibling `agentplatform/memory/`）
 
 ```markdown
 ---
@@ -85,7 +94,7 @@ updated_at: YYYY-MM-DD HH:MM
 
 ### Step 4: 更新项目 memory/INDEX.md
 
-在以下区域追加条目：
+更新 `<ASSET_PROJECT_ROOT>/memory/INDEX.md`。若不存在，先创建最小索引，然后在以下区域追加条目：
 - Bug 经验表（遇到的 Bug）
 - 设计决策表（架构选择原因）
 

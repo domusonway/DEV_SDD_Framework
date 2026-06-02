@@ -46,6 +46,7 @@ PROJECT_PATH: projects/agentplatform_workspace/agentplatform
 > 切换项目：修改上方 PROJECT 字段，或使用 /project:switch
 > 工作启动：优先使用 /DEV_SDD:start-work（可选 `<project-name>`）统一加载上下文、判断续接状态并选择下一步动作
 > 路径边界：`PROJECT` 是逻辑名；`PROJECT_PATH` 是真实子项目根。workspace 类型项目必须让每个子项目把 docs/memory/sessions/challenges/res 等中间数据写入自己的 `PROJECT_PATH`，不得混写到 workspace 根或 `projects/<PROJECT>` fallback。
+> 资产所属项目优先：当任务主要修改或沉淀 sibling 子仓库资产时，写入根必须切换为该资产所属子仓库根；当前激活 `PROJECT_PATH` 只作为默认上下文，不得覆盖资产归属。
 
 ***
 
@@ -167,6 +168,7 @@ skill-changelog.md 版本追踪
 写入 memory/                        ← 跨项目通用，≥3个项目验证后升级至此
 ```
 
+> `<PROJECT_ROOT>` 写入前必须先做资产归属判定：若证据、代码、SPEC、实验计划或测试主要位于某个 sibling 子仓库，则该 sibling 子仓库就是写入根；只有任务确实属于当前激活项目时才使用当前 `PROJECT_PATH`。若目标子仓库没有 `memory/INDEX.md`，先在目标子仓库创建最小 `memory/INDEX.md`，不得退回写入 sibling 项目 memory。
 > 记忆沉淀路径：对话快照 → 项目 Bug/决策 memory → candidates 候选池
 >   → （人工审核）→ 框架 memory
 

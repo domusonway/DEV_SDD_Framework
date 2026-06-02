@@ -29,3 +29,11 @@
 ## 变更记录
 
 <!-- promote 操作自动追加到此处 -->
+
+## .claude/skills/memory-update/SKILL.md — 2026-05-14
+- 来源候选：manual correction from agent_lab_space memory-root miswrite
+- 规则：项目 memory/session 写入前必须先判定资产所属项目根；sibling 子仓库资产优先于当前激活 `PROJECT_PATH`，缺少 `memory/INDEX.md` 时创建最小索引，不得退回写入当前激活项目。
+- 验证项目：agentplatform, agent_lab_space
+- 类型：skill_rule + hook_guidance
+- 审核：人工批准（用户要求“优化执行规则”）
+- 效果追踪：待验证（观察后续 workspace sibling 任务是否仍发生 memory 混写）

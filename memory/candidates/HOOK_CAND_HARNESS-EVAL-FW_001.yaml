@@ -8,29 +8,33 @@ observed_evidence: |
   1. `.claude/hooks/post-green/run.sh` computed `FRAMEWORK_ROOT` from a relative script path and failed when invoked from the framework root with a relative hook path, so its tool-health step aborted even though validation had already passed.
   2. `.claude/hooks/session-snapshot/write.py` only wrote project session files correctly when executed from the project root; from the framework root it produced a success message but did not persist the expected project session markdown.
 
+  3. During agentplatform VisA delivery, `hook-observer/observe.py agentplatform` and `observe.py agent_lab_space` reported `无 session 文件` even after session files existed under `projects/agentplatform_workspace/{agentplatform,agent_lab_space}/memory/sessions/`, because the observer hardcodes `ROOT / "projects" / project / "memory" / "sessions"` and ignores `PROJECT_PATH` workspace roots.
+
   Both issues share the same underlying pattern: hook/runtime helpers should resolve framework/project roots from the script file location or explicit arguments, not from the caller's cwd heuristics.
 observed_pattern_key: "hook-observer:cwd-sensitive-hook-runtime:.claude/hooks/post-green/run.sh"
-proposed_rule: "Framework hook and session helper scripts must resolve framework/project roots from __file__ or explicit target arguments, never rely on the caller's cwd to infer the active project."
+proposed_rule: "Framework hook and session helper scripts must resolve framework/project roots from __file__, explicit target arguments, or PROJECT_PATH, never rely on caller cwd or projects/<project> fallback only."
 target_file: .claude/hooks/post-green/run.sh
 proposed_diff: |
   Harden framework helper scripts against cwd-sensitive execution:
   - `.claude/hooks/post-green/run.sh`: derive `FRAMEWORK_ROOT` from the absolute script file path before invoking nested helpers, so running the hook from the framework root or any other cwd behaves the same.
   - `.claude/hooks/session-snapshot/write.py`: accept an explicit project argument or derive the project root from the script invocation target, and fail loudly if the destination session file was not created.
+  - `.claude/hooks/hook-observer/observe.py`: resolve project session directories through the same active `PROJECT_PATH` / workspace-aware helper used by startup and memory-update rules; do not hardcode `ROOT / "projects" / project`.
   - `.claude/hooks/session-snapshot/HOOK.md`: document that the project-root invocation is authoritative until the helper supports explicit project selection.
 
   This candidate captures a framework-level reliability issue exposed while finishing a full 9-module project, where path-sensitive helpers made post-green and session bookkeeping non-deterministic.
-confidence: low
+confidence: medium
 validated_projects:
   - HarnessEvaluationFramework
-status: deferred
+  - agentplatform
+status: pending_review
 auto_attach: false
 auto_attach_triggered_projects: []
 auto_attach_issues: []
 created: 2026-04-09
 domain: agent_workflow
 secondary_target: .claude/hooks/session-snapshot/write.py
-failure_count: 1
-defer_reason: single-project evidence after confidence consistency check; wait for another validation
+failure_count: 2
 
 review_history:
   - 2026-04-26: deferred - single-project evidence after confidence consistency check; wait for another validation
+  - 2026-05-22: pending_review - reproduced in agentplatform workspace PROJECT_PATH layout via hook-observer session lookup miss

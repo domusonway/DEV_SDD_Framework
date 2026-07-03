@@ -4,7 +4,8 @@ title: recv 返回 b'' 表示连接关闭，必须检查否则死循环
 severity: CRITICAL
 created: 2026-03-03
 confidence: high
-validated_by: sdd-tinyhttpd, mini-redis
+validated_by: sdd-tinyhttpd
+validation_note: 早期在 sdd-tinyhttpd 单项目回归实验中确立；原记录曾列出未落盘、无法核验的项目名（已更正为可核验证据），≥3 项目跨项目复验待补。
 ---
 
 ## 规则

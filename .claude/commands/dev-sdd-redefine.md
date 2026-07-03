@@ -30,7 +30,6 @@ REDEFINE 必须按以下顺序传播，禁止反向使用 markdown 作为源：
 1. 更新 `docs/plan.json`（权威执行状态）
 2. 基于最新 `plan.json` 重建 `docs/PLAN.md`（只读视图）
 3. 基于最新 `plan.json` 重建 `docs/sub_docs/` 的任务文档索引骨架
-4. 基于最新 `plan.json` 重建 `docs/PLAN.md`（只读视图）
 
 > 任何差异判断、下一步动作和命令可见状态都应来自 `plan.json`，而不是旧 `PLAN.md`。
 

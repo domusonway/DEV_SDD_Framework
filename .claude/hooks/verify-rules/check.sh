@@ -8,11 +8,15 @@ set -eu
 
 # ── 读取当前激活项目 ──────────────────────────────────────────────────────────
 FRAMEWORK_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../" && pwd)"
-CLAUDE_MD="$FRAMEWORK_ROOT/CLAUDE.md"
+# PROJECT / PROJECT_PATH 定义在 AGENTS.md（CLAUDE.md 可能仅是 ./AGENTS.md 指针）
+CONTEXT_MD="$FRAMEWORK_ROOT/AGENTS.md"
+[ -f "$CONTEXT_MD" ] || CONTEXT_MD="$FRAMEWORK_ROOT/CLAUDE.md"
 
 PROJECT=""
-if [ -f "$CLAUDE_MD" ]; then
-    PROJECT=$(grep -E "^PROJECT:" "$CLAUDE_MD" | head -1 | sed 's/PROJECT://' | tr -d ' ')
+PROJECT_PATH_REL=""
+if [ -f "$CONTEXT_MD" ]; then
+    PROJECT=$(grep -E "^PROJECT:" "$CONTEXT_MD" | head -1 | sed 's/^PROJECT://' | tr -d ' ' || true)
+    PROJECT_PATH_REL=$(grep -E "^PROJECT_PATH:" "$CONTEXT_MD" | head -1 | sed 's/^PROJECT_PATH://' | tr -d ' ' || true)
 fi
 
 if [ -z "$PROJECT" ] || [ "$PROJECT" = "none" ]; then
@@ -20,7 +24,17 @@ if [ -z "$PROJECT" ] || [ "$PROJECT" = "none" ]; then
     exit 1
 fi
 
-SESSION_DIR="$FRAMEWORK_ROOT/projects/$PROJECT/memory/sessions"
+# 解析项目根：优先 PROJECT_PATH（支持 workspace 型嵌套项目），否则回退 projects/<PROJECT>
+if [ -n "$PROJECT_PATH_REL" ]; then
+    case "$PROJECT_PATH_REL" in
+        /*) PROJECT_ROOT="$PROJECT_PATH_REL" ;;
+        *)  PROJECT_ROOT="$FRAMEWORK_ROOT/$PROJECT_PATH_REL" ;;
+    esac
+else
+    PROJECT_ROOT="$FRAMEWORK_ROOT/projects/$PROJECT"
+fi
+
+SESSION_DIR="$PROJECT_ROOT/memory/sessions"
 TODAY=$(date +%Y-%m-%d)
 
 echo ""
@@ -131,9 +145,9 @@ fi
 # ── 检查 4：memory/ 文件近期有无更新 ─────────────────────────────────────────
 echo ""
 echo "【4】记忆库近期活跃度"
-MEMORY_DIR="$FRAMEWORK_ROOT/projects/$PROJECT/memory"
+MEMORY_DIR="$PROJECT_ROOT/memory"
 if [ -d "$MEMORY_DIR" ]; then
-    RECENT=$(find "$MEMORY_DIR" -name "*.md" -newer "$CLAUDE_MD" 2>/dev/null | grep -v sessions | wc -l | tr -d ' ')
+    RECENT=$(find "$MEMORY_DIR" -name "*.md" -newer "$CONTEXT_MD" 2>/dev/null | grep -v sessions | wc -l | tr -d ' ')
     if [ "$RECENT" -gt 0 ]; then
         echo "  ✅ 有 $RECENT 个 memory 文件近期有更新"
         PASS=$((PASS+1))
@@ -149,7 +163,7 @@ fi
 # ── 检查 5：PLAN.md 是否同步 ─────────────────────────────────────────────────
 echo ""
 echo "【5】PLAN.md 同步状态"
-PLAN_FILE="$FRAMEWORK_ROOT/projects/$PROJECT/docs/PLAN.md"
+PLAN_FILE="$PROJECT_ROOT/docs/PLAN.md"
 if [ -f "$PLAN_FILE" ]; then
     UNCHECKED=$(grep -c "- \[ \]" "$PLAN_FILE" 2>/dev/null || echo 0)
     CHECKED=$(grep -c "- \[x\]" "$PLAN_FILE" 2>/dev/null || echo 0)

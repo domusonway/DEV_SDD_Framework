@@ -12,7 +12,7 @@ memory-keeper 完成后自动激活，或手动执行 `/project:skill-review`。
 ## 输入源
 - `<PROJECT_ROOT>/memory/sessions/` — 所有会话快照（`PROJECT_PATH` 优先）
 - `<PROJECT_ROOT>/memory/INDEX.md` — Bug 经验表、设计决策表
-- `<PROJECT_ROOT>/docs/PLAN.md` — 批次完成记录，含 `[~]` 跳过标记
+- `<PROJECT_ROOT>/docs/plan.json` — 批次完成记录（`state=completed`/`skipped`，权威源）；`docs/PLAN.md` 为其派生视图
 - `.claude/skills/**/*.md` — 现有正式规则（对比用）
 - `.claude/hooks/**/*.md` — 现有 Hook 触发条件（对比用）
 - `.claude/agents/*.md` — 现有 Agent 约束（对比用）
@@ -24,7 +24,7 @@ memory-keeper 完成后自动激活，或手动执行 `/project:skill-review`。
 
 ### Step 1: 扫描失败信号
 
-从 sessions/ 和 PLAN.md 中提取：
+从 sessions/ 和 plan.json 中提取：
 
 ```
 信号A — SKILL违反：RED>2、断言被修改、VALIDATE跳过的记录
@@ -55,7 +55,7 @@ proposed_rule: <一句话规则>
 target_file: .claude/skills/tdd-cycle/SKILL.md
 proposed_diff: |
   在"禁止行为"章节末尾追加：
-  - 跳过 UPDATE-PLAN 阶段不更新 PLAN.md 和 memory/INDEX.md
+  - 跳过 UPDATE-PLAN 阶段不更新 plan.json（及派生 PLAN.md）和 memory/INDEX.md
 confidence: medium
 domain: tdd_patterns
 validated_projects: [<项目名>]

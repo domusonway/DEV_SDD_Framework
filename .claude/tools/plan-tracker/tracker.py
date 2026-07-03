@@ -31,13 +31,26 @@ import os
 import re
 import json
 import argparse
+import importlib.util
 import subprocess
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 
 CHECK_IMPL_PATH = Path(__file__).resolve().parents[2] / "hooks" / "observe-verify" / "check_impl.py"
+
+# 复用统一的项目根解析逻辑（与 start-work / workflow_cli_common 保持一致），
+# 使 plan-tracker 能正确解析 workspace 型项目的 PROJECT_PATH。
+_TOOLS_ROOT = Path(__file__).resolve().parents[1]
+_COMMON_SPEC = importlib.util.spec_from_file_location(
+    "workflow_cli_common", _TOOLS_ROOT / "workflow_cli_common.py"
+)
+if _COMMON_SPEC and _COMMON_SPEC.loader:  # pragma: no branch
+    workflow_cli_common = importlib.util.module_from_spec(_COMMON_SPEC)
+    _COMMON_SPEC.loader.exec_module(workflow_cli_common)
+else:  # pragma: no cover - defensive fallback
+    workflow_cli_common = None
 
 
 def find_project_root() -> Path:
@@ -74,9 +87,29 @@ def save_plan(root: Path, project: str, plan: dict[str, Any]):
     plan_path.write_text(json.dumps(plan, ensure_ascii=False, indent=2))
 
 
+def _configured_project_path(root: Path) -> Optional[Path]:
+    """解析当前激活项目的 PROJECT_PATH（支持 workspace 型嵌套根）。
+
+    旧实现默认 projects/<PROJECT>，导致 PROJECT_PATH 不同的 workspace 子项目
+    （如 projects/foo_workspace/bar/foo）无法被 plan-tracker 定位。此处与
+    start-work / workflow_cli_common 采用同一解析逻辑。仅当解析结果真实存在时
+    才返回，否则回退到旧的 projects/<PROJECT> 行为，保持向后兼容。
+    """
+    if workflow_cli_common is None:
+        return None
+    config = workflow_cli_common.active_project_config(root)
+    resolved = workflow_cli_common.resolve_configured_project_path(
+        root, config.get("project_path")
+    )
+    return resolved
+
+
 def project_path(root: Path, project: str) -> Path:
     if (root / "docs" / "plan.json").exists():
         return root
+    configured = _configured_project_path(root)
+    if configured is not None and configured.exists():
+        return configured
     return root / "projects" / project
 
 
@@ -319,15 +352,20 @@ def _compute_next_action(plan: dict[str, Any]) -> str:
     return "所有模块已完成，可进入 validate-output"
 
 
-def cmd_status(args, root, project):
+def _load_plan_guarded(args, root, project):
+    """加载 plan.json；缺失时输出干净的错误信封并退出，避免抛出未捕获的 traceback。"""
     try:
-        plan = load_plan(root, project)
+        return load_plan(root, project)
     except FileNotFoundError as e:
-        if args.json:
+        if getattr(args, "json", False):
             print(json.dumps({"status": "error", "message": str(e), "data": None}, ensure_ascii=False))
         else:
             print(f"❌ {e}")
         sys.exit(1)
+
+
+def cmd_status(args, root, project):
+    plan = _load_plan_guarded(args, root, project)
 
     try:
         all_modules = collect_plan_modules(plan)
@@ -390,7 +428,7 @@ def cmd_status(args, root, project):
 
 
 def cmd_next(args, root, project):
-    plan = load_plan(root, project)
+    plan = _load_plan_guarded(args, root, project)
     try:
         ready = compute_ready_tasks(plan)
     except ValueError as e:
@@ -417,7 +455,7 @@ def cmd_next(args, root, project):
 
 
 def cmd_conflicts(args, root, project):
-    plan = load_plan(root, project)
+    plan = _load_plan_guarded(args, root, project)
     try:
         conflicts = compute_conflicts(plan)
     except ValueError as e:
@@ -434,7 +472,7 @@ def cmd_conflicts(args, root, project):
 
 
 def cmd_critical_path(args, root, project):
-    plan = load_plan(root, project)
+    plan = _load_plan_guarded(args, root, project)
     try:
         rows = compute_critical_path(plan)
     except ValueError as e:
@@ -446,6 +484,11 @@ def cmd_critical_path(args, root, project):
     print("critical path 分析完成")
     for row in rows:
         print(f"  depth={row['critical_depth']}  {row.get('name')}")
+
+
+def cmd_render(args, root, project):
+    plan = _load_plan_guarded(args, root, project)
+    render_markdown(root, project, plan, quiet=getattr(args, "json", False))
 
 
 def cmd_lock(args, root, project):
@@ -721,7 +764,7 @@ def main():
         "complete": cmd_complete,
         "skip": cmd_skip,
         "validate": cmd_validate,
-        "render": lambda a, r, p: render_markdown(r, p, load_plan(r, p), quiet=a.json),
+        "render": cmd_render,
     }
 
     if args.cmd in dispatch:

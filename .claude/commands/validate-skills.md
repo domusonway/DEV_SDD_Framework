@@ -17,18 +17,16 @@ python3 skill-tests/cases/test_<skill-name>.py
 
 ## 预期输出
 ```
-=== DEV SDD Framework Skill Tests ===
-test_complexity_assess  ✅ PASS
-test_tdd_cycle          ✅ PASS
-test_diagnose_bug       ✅ PASS
-test_memory_update      ✅ PASS
-test_validate_output    ✅ PASS
-test_hook_network_guard ✅ PASS
-test_hook_post_green    ✅ PASS
-test_hook_stuck_detector✅ PASS
+  ✅ complexity_assess     PASS
+  ✅ tdd_cycle             PASS
+  ✅ ...（逐项列出全部 Layer 1 测试文件）
+  ✅ workflow_drift_guards PASS
 
-8/8 通过
+  总结: 30/30 通过  ✅
+
+  报告: skill-tests/reports/report_L1_<时间戳>.json
 ```
+> Layer 1 用例数量随框架演进变化，以实际 `总结: N/N 通过` 行为准（当前 30）。
 
 ## 失败时
 - 检查 skill-tests/reports/ 下的详情报告

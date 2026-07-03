@@ -1,4 +1,3 @@
-````markdown
 # Agent: Implementer
 > 角色：按 Planner 输出的批次，逐模块执行 TDD 实现
 
@@ -40,14 +39,14 @@ for 批次 in Planner.批次列表:
 - [ ] 当前批次所有模块测试全绿（pytest 全部 PASS）
 - [ ] 接口与 SPEC 一致（返回类型、异常处理）
 - [ ] 模块实现已写入 `plan.json.impl_path` 指定位置，而不是误写到 `modules/` 规格目录
-- [ ] **docs/PLAN.md 中本批次所有模块已勾选（`- [x]`）**
+- [ ] **plan.json 中本批次所有模块 `state=completed`（用 `plan-tracker complete <module>` 标记，`plan-tracker validate` 校验；PLAN.md 由 plan-tracker 自动派生，不手改）**
 - [ ] **memory/INDEX.md 的"模块实现状态"已更新为 ✅**
 - [ ] **memory/INDEX.md 的"接口快照"中本批次接口标记为 🟢**
 - [ ] 下一批次依赖的接口已在"接口快照"中标记为 🟢（稳定）
 - [ ] **运行 check_tools.sh，无新增 TOOL_SIGNAL 或已记录到 session**
 - [ ] 长任务/复杂任务/跨模块批次已执行 `challenge-gate`，无 `rework` 或 `ask_user` 阻塞
 
-> ⚠️ 若 PLAN.md 未更新，视为本批次**未完成**，不得进入下一批次。
+> ⚠️ 若 plan.json 未通过 `plan-tracker complete` 更新（`plan-tracker validate` 未通过），视为本批次**未完成**，不得进入下一批次。
 
 ---
 
@@ -56,11 +55,9 @@ for 批次 in Planner.批次列表:
 1. 触发 stuck-detector hook
 2. 完成 diagnose-bug 后继续
 3. 不因一个模块阻塞整个批次（标记待修复，先跳过）
-4. **跳过的模块在 PLAN.md 中标记为 `- [~]`（跳过，待修复）**，不标记为完成
+4. **跳过的模块用 `plan-tracker skip <module>` 标记为 `state=skipped`（跳过，待修复；PLAN.md 派生显示 `- [~]`）**，不标记为完成
 
 ---
 
 ## 完成后移交
-所有批次完成 → 确认 PLAN.md 无未勾选项 → 移交 Reviewer：读取 `.claude/agents/reviewer.md`
-
-````
+所有批次完成 → 用 `plan-tracker validate` 确认 plan.json 无未完成项 → 移交 Reviewer：读取 `.claude/agents/reviewer.md`

@@ -22,6 +22,8 @@ from pathlib import Path
 FRAMEWORK_ROOT = Path(__file__).parent.parent.parent
 DOCS_ROOT = FRAMEWORK_ROOT / "docs"
 RUN_ALL_PATH = FRAMEWORK_ROOT / "skill-tests/run_all.py"
+IMPLEMENTER_AGENT = FRAMEWORK_ROOT / ".claude/agents/implementer.md"
+PROJECT_RULES = FRAMEWORK_ROOT / "docs/PROJECT_RULES.md"
 UPDATE_TODO_TOOL = FRAMEWORK_ROOT / ".claude/tools/update-todo/run.py"
 UPDATE_TODO_FIXTURES = FRAMEWORK_ROOT / "skill-tests/fixtures/update_todo"
 WORKFLOW_CONTRACT_CASE = FRAMEWORK_ROOT / "skill-tests/cases/test_workflow_cli_contracts.py"
@@ -84,6 +86,22 @@ def test_root_plan_doc_keeps_plan_json_as_authoritative_source_of_truth():
         assert fragment in content, f"docs/PLAN.md 缺少关键防漂移语义: {fragment}"
 
 
+def test_completion_gate_uses_plan_json_not_plan_md_checkbox():
+    """防止回归：H 模式完成判定必须以 plan.json（plan-tracker）为权威源，
+    而非 PLAN.md 复选框（PLAN.md 已定义为只读派生视图）。"""
+    impl = IMPLEMENTER_AGENT.read_text(encoding="utf-8")
+    assert "plan-tracker validate" in impl, "implementer 应以 plan-tracker validate 作为批次完成校验"
+    assert "state=completed" in impl, "implementer 完成判定应基于 plan.json 的 state"
+    # 旧的 markdown-first 门禁语义不得回归
+    assert "docs/PLAN.md 中本批次所有模块已勾选" not in impl, \
+        "implementer 不应再以 PLAN.md 勾选作为完成门禁"
+
+    rules = PROJECT_RULES.read_text(encoding="utf-8")
+    assert "plan.json 未更新" in rules, "PROJECT_RULES 禁止项应以 plan.json 为完成真相源"
+    assert "在 PLAN.md 未更新（仍有 `- [ ]`）时宣布模块完成" not in rules, \
+        "PROJECT_RULES 不应再以 PLAN.md 勾选作为完成门禁"
+
+
 def test_update_todo_no_longer_writes_docs_todo():
     project_root = clone_fixture("conflict-project")
     try:
@@ -123,6 +141,7 @@ if __name__ == "__main__":
     tests = [
         test_root_docs_do_not_contain_unresolved_placeholders,
         test_root_plan_doc_keeps_plan_json_as_authoritative_source_of_truth,
+        test_completion_gate_uses_plan_json_not_plan_md_checkbox,
         test_update_todo_no_longer_writes_docs_todo,
         test_workflow_contract_coverage_is_registered_and_asserts_shared_envelope_rules,
     ]

@@ -2,13 +2,22 @@
 
 ## 用法
 ```bash
-/DEV_SDD:fix <issue-json-path>
+/DEV_SDD:fix <issue-json-path>          # 结构化 issue JSON
+/DEV_SDD:fix <自然语言问题描述>          # 自然语言入口（无需先写 JSON）
 ```
 
 helper 入口：
 ```bash
+# 结构化 issue JSON
 python3 .claude/tools/fix/run.py <issue-json-path> [--json] [--dry-run]
+# 自然语言入口（二选一）
+python3 .claude/tools/fix/run.py --text "<问题描述>" [--project <name-or-path>] [--json] [--dry-run]
+python3 .claude/tools/fix/run.py "<问题描述>" [--project <name-or-path>] [--json]   # 位置参数非文件时按 NL 处理
 ```
+
+> 自然语言入口便于「修个 bug」这类最常见场景直接进入 triage。由于 NL 输入通常缺少复现/预期/实际信息，
+> triage 会降级为低置信度并列出 `missing_context`，引导补齐后再做实现层修复，而不是幻觉式给补丁。
+> 需要精确 triage 时，建议改用结构化 issue JSON（可提供 `reproduction_steps` / `file_hints` 等）。
 
 ## 定位
 - `/DEV_SDD:fix` 是**修复分诊命令**：它负责读取 issue、项目上下文、项目 memory 和可用计划信息，先做 triage，再给出修复选项。

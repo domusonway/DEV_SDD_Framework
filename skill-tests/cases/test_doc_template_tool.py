@@ -28,7 +28,11 @@ REQUIRED_TEMPLATES = [
 ]
 
 
-def active_project_sub_docs_root() -> Path:
+def active_project_root_rel() -> str:
+    """从 AGENTS.md/CLAUDE.md 派生激活项目根（相对路径），即 source-of-truth。
+
+    断言不再硬编码具体路径；PROJECT_PATH 变化时测试自动跟随，避免再次陈旧化。
+    """
     project = ""
     project_path = ""
     for candidate in [FRAMEWORK_ROOT / "AGENTS.md", FRAMEWORK_ROOT / "CLAUDE.md"]:
@@ -42,8 +46,11 @@ def active_project_sub_docs_root() -> Path:
                 project_path = stripped.split(":", 1)[1].strip()
         if project:
             break
-    project_root = project_path or f"projects/{project}"
-    return FRAMEWORK_ROOT / project_root / "docs" / "sub_docs"
+    return project_path or f"projects/{project}"
+
+
+def active_project_sub_docs_root() -> Path:
+    return FRAMEWORK_ROOT / active_project_root_rel() / "docs" / "sub_docs"
 
 
 def run_tool(*args: str):
@@ -111,7 +118,7 @@ def test_scaffold_returns_project_sub_doc_path_and_required_sections():
     assert result.returncode == 0, result.stderr
     data = parse_json(result, "scaffold")["data"]
     assert data["template_id"] == "module-validation-report"
-    assert data["suggested_path"].endswith("projects/agentplatform_workspace/agentplatform/docs/sub_docs/validation/runtime-validation-report.md")
+    assert data["suggested_path"].endswith(f"{active_project_root_rel()}/docs/sub_docs/validation/runtime-validation-report.md"), data["suggested_path"]
     assert data["language_policy"] == "zh_cn_default_preserve_terms"
     content = data["content"]
     for heading in ["## 验证目标", "## 入口路径", "## 上游输入", "## 下游输出", "## 执行命令", "## 详细证据"]:
@@ -136,7 +143,7 @@ def test_scaffold_uses_project_path_for_active_workspace_project_name():
     result = run_tool("scaffold", "implementation-brief", "--project", "agentplatform", "--topic", "workspace-path", "--json")
     assert result.returncode == 0, result.stderr
     data = parse_json(result, "scaffold workspace project")["data"]
-    assert data["suggested_path"].startswith("projects/agentplatform_workspace/agentplatform/docs/"), data["suggested_path"]
+    assert data["suggested_path"].startswith(f"{active_project_root_rel()}/docs/"), data["suggested_path"]
 
 
 def test_validate_reports_missing_required_sections():

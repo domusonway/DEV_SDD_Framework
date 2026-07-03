@@ -122,6 +122,73 @@ def make_parallel_workspace() -> tuple[Path, Path]:
     return workspace_root, project_root
 
 
+def make_nested_workspace() -> tuple[Path, Path]:
+    """workspace 型项目：PROJECT_PATH 指向的嵌套根 != projects/<PROJECT>。"""
+    workspace_root = Path(tempfile.mkdtemp(prefix="plan_tracker_nested_"))
+    project_name = "foo"
+    project_rel = "subrepo/deep/foo"
+    project_root = workspace_root / project_rel
+    docs_dir = project_root / "docs"
+    docs_dir.mkdir(parents=True, exist_ok=True)
+    (workspace_root / "AGENTS.md").write_text(
+        f"PROJECT: {project_name}\nPROJECT_PATH: {project_rel}\n",
+        encoding="utf-8",
+    )
+    (docs_dir / "plan.json").write_text(
+        json.dumps(
+            {
+                "project": project_name,
+                "batches": [
+                    {
+                        "name": "Batch 1",
+                        "modules": [
+                            {"id": "T-001", "name": "alpha", "state": "completed"},
+                            {"id": "T-002", "name": "beta", "state": "pending"},
+                        ],
+                    }
+                ],
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    return workspace_root, project_root
+
+
+def test_status_resolves_workspace_project_path():
+    """回归：plan-tracker 必须通过 PROJECT_PATH 定位 workspace 型嵌套项目的 plan.json。"""
+    workspace_root, project_root = make_nested_workspace()
+    try:
+        # projects/<PROJECT> 不存在；只有 PROJECT_PATH 指向的嵌套根存在
+        assert not (workspace_root / "projects" / "foo").exists()
+        result = run_tracker(workspace_root, "status", "--json")
+        assert result.returncode == 0, f"应通过 PROJECT_PATH 定位 plan.json: {result.stdout}\n{result.stderr}"
+        payload = json.loads(result.stdout)
+        assert payload["status"] == "ok"
+        assert payload["data"]["total"] == 2
+        assert payload["data"]["completed"] == 1
+    finally:
+        shutil.rmtree(workspace_root, ignore_errors=True)
+
+
+def test_next_parallel_missing_plan_reports_clean_error():
+    """回归：plan 缺失时 next/conflicts 必须输出干净的错误信封，而非抛出 traceback。"""
+    workspace_root = Path(tempfile.mkdtemp(prefix="plan_tracker_missing_"))
+    try:
+        (workspace_root / "AGENTS.md").write_text(
+            "PROJECT: ghost\nPROJECT_PATH: projects/ghost\n", encoding="utf-8"
+        )
+        result = run_tracker(workspace_root, "next", "--parallel", "--json")
+        assert result.returncode == 1, result.stdout
+        assert "Traceback" not in result.stderr, f"不应抛出未捕获异常: {result.stderr}"
+        payload = json.loads(result.stdout)  # 必须是可解析的 JSON 信封
+        assert payload["status"] == "error"
+        assert "plan.json" in payload["message"]
+    finally:
+        shutil.rmtree(workspace_root, ignore_errors=True)
+
+
 def test_complete_rejects_stub_module():
     workspace_root, project_root = make_workspace(
         "def run_demo(value: int) -> int:\n    pass\n"
@@ -226,6 +293,8 @@ def test_lock_and_release_parallel_module():
 
 if __name__ == "__main__":
     tests = [
+        test_status_resolves_workspace_project_path,
+        test_next_parallel_missing_plan_reports_clean_error,
         test_complete_rejects_stub_module,
         test_complete_accepts_real_module_and_updates_plan,
         test_validate_rejects_completed_stub_module,

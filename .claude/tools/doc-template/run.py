@@ -61,7 +61,12 @@ def load_templates() -> dict[str, dict[str, Any]]:
             continue
         content = path.read_text(encoding="utf-8")
         meta, body = parse_frontmatter(content)
-        template_id = str(meta.get("id") or path.stem)
+        # 仅登记带 frontmatter id 的正式 doc-template；无 frontmatter 的文件
+        # （如 agent_lab_experiment_sedimentation_template.md）不应被当作模板注册，
+        # 否则会以空 meta 混入分类/脚手架，且 validate 永远空过。
+        if not meta.get("id"):
+            continue
+        template_id = str(meta["id"])
         templates[template_id] = {"id": template_id, "path": path, "meta": meta, "body": body}
     return templates
 

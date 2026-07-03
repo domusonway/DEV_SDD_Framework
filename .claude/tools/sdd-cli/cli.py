@@ -118,13 +118,21 @@ def error_out(message: str, as_json: bool, code: int = 1):
 # ── 注册表 ────────────────────────────────────────────────────────────────────
 
 # 扫描目标：(glob_pattern, type_label)
+# (glob 模式, 类型, id 来源)
+#   id_from="parent" — 以所在目录名为 id（skills/hooks/tools：目录即身份）
+#   id_from="stem"   — 以文件名（去扩展名）为 id（agents 是扁平文件，目录名统一为 "agents" 会碰撞）
 SCAN_TARGETS = [
-    (".claude/skills/*/SKILL.md", "skill"),
-    (".claude/hooks/*/HOOK.md", "hook"),
-    (".claude/agents/*.md", "agent"),
-    ("memory/important/*.md", "memory"),
-    ("memory/critical/*.md", "memory"),
-    ("memory/domains/**/INDEX.md", "memory"),
+    (".claude/skills/*/SKILL.md", "skill", "parent"),
+    (".claude/hooks/*/HOOK.md", "hook", "parent"),
+    (".claude/agents/*.md", "agent", "stem"),
+    # 工具入口文件名不统一（run.py / tracker.py / cli.py），逐一覆盖；
+    # 共享库 .claude/tools/workflow_cli_common.py 不在子目录内，天然排除。
+    (".claude/tools/*/run.py", "tool", "parent"),
+    (".claude/tools/*/tracker.py", "tool", "parent"),
+    (".claude/tools/*/cli.py", "tool", "parent"),
+    ("memory/important/*.md", "memory", "stem"),
+    ("memory/critical/*.md", "memory", "stem"),
+    ("memory/domains/**/INDEX.md", "memory", "parent"),
 ]
 
 
@@ -189,20 +197,27 @@ def _extract_tags(content: str) -> list:
 def build_registry() -> dict:
     """扫描框架目录，构建完整注册表。"""
     entries = {}
-    for pattern, type_label in SCAN_TARGETS:
+    for pattern, type_label, id_from in SCAN_TARGETS:
         for fpath in sorted(ROOT.glob(pattern)):
             if "__pycache__" in str(fpath):
+                continue
+            # 跳过编辑器复制产生的重复文件（如 "memory-keeper copy.md"），
+            # 避免注册表把已分叉的孤儿副本当成正规资产暴露给发现层。
+            if " copy" in fpath.stem:
                 continue
             try:
                 content = fpath.read_text(encoding="utf-8")
             except Exception:
                 continue
             fm = _extract_frontmatter(content)
-            # id 推导：优先 frontmatter id，其次目录名
-            eid = fm.get("id") or fpath.parent.name
-            # 去重：同 id 保留路径更短的（通常是主文件）
-            if eid in entries:
-                existing_depth = len(Path(entries[eid]["path"]).parts)
+            # id 推导：优先 frontmatter id，否则按 id_from 策略（parent=目录名 / stem=文件名）
+            fallback_id = fpath.stem if id_from == "stem" else fpath.parent.name
+            eid = fm.get("id") or fallback_id
+            # 去重键为 (type, id)：同名跨类型资产（如 context-probe 既是 skill 又是 tool）应共存；
+            # 仅在同一类型内按路径更短者保留主文件。
+            dedup_key = (type_label, eid)
+            if dedup_key in entries:
+                existing_depth = len(Path(entries[dedup_key]["path"]).parts)
                 new_depth = len(fpath.relative_to(ROOT).parts)
                 if new_depth >= existing_depth:
                     continue
@@ -219,7 +234,7 @@ def build_registry() -> dict:
                 "last_updated": fm.get("last_updated",
                                        datetime.fromtimestamp(fpath.stat().st_mtime).strftime("%Y-%m-%d")),
             }
-            entries[eid] = entry
+            entries[dedup_key] = entry
     return {
         "generated_at": datetime.now().isoformat(),
         "framework_root": str(ROOT),
@@ -563,7 +578,7 @@ def main():
     # list
     sp = subparsers.add_parser("list", help="列出全部已注册规则")
     sp.add_argument("--type", default="all",
-                    choices=["all", "skill", "hook", "agent", "memory"],
+                    choices=["all", "skill", "hook", "agent", "memory", "tool"],
                     help="按类型过滤（默认: all）")
 
     # annotate

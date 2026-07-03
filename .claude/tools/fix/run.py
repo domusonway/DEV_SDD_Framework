@@ -8,11 +8,15 @@ fix/run.py
   再输出 minimal_change / comprehensive_change 两层修复选项。
 
 用法:
+  # 结构化 issue JSON
   python3 .claude/tools/fix/run.py <issue-json-path> [--json] [--dry-run]
+  # 自然语言入口（无需先写 JSON）
+  python3 .claude/tools/fix/run.py --text "router 模块疑似有空指针 bug" [--project <name-or-path>] [--json]
+  python3 .claude/tools/fix/run.py "router 模块疑似有空指针 bug" [--json]   # 位置参数非文件时按 NL 处理
 
 示例:
   python3 .claude/tools/fix/run.py skill-tests/fixtures/fix/repro-issue.json --json --dry-run
-  python3 .claude/tools/fix/run.py skill-tests/fixtures/fix/sparse-issue.json --json
+  python3 .claude/tools/fix/run.py --text "calibration 标定结果异常，需要定位" --json --dry-run
 """
 
 from __future__ import annotations
@@ -658,15 +662,52 @@ def build_memory_follow_up(project_root: Path, triage: dict[str, Any]) -> dict[s
     }
 
 
-def run(issue_arg: str, dry_run: bool) -> dict[str, Any]:
-    issue_path = Path(issue_arg).resolve()
-    try:
-        issue = load_issue(issue_path)
-    except ValueError as exc:
-        return {"status": STATUS_ERROR, "message": str(exc), "data": None}
+def issue_from_text(text: str, project: str | None) -> dict[str, Any]:
+    """从自然语言描述构造最小 issue dict，复用既有 triage 管线。
+
+    NL 输入通常缺少复现/预期/实际信息；triage 会据此降级为低置信度并请求补齐，
+    而不是幻觉式给出补丁——这正是稀疏输入的期望行为，也让 `/DEV_SDD:fix` 有了
+    自然语言入口（无需先手写 issue JSON）。
+    """
+    clean = text.strip()
+    return {
+        "project": (project or "").strip(),
+        "title": clean[:120],
+        "summary": clean,
+    }
+
+
+def run(issue_arg: str | None, dry_run: bool, text: str | None = None, project_arg: str | None = None) -> dict[str, Any]:
+    base_dir: Path | None = None
+    if text and text.strip():
+        # 显式自然语言入口
+        issue = issue_from_text(text, project_arg)
+        issue_source_label = "natural-language"
+    elif issue_arg:
+        candidate = Path(issue_arg)
+        if candidate.is_file():
+            # 既有行为：issue JSON 文件
+            try:
+                issue = load_issue(candidate.resolve())
+            except ValueError as exc:
+                return {"status": STATUS_ERROR, "message": str(exc), "data": None}
+            issue_source_label = rel_path(candidate.resolve(), ROOT)
+            base_dir = candidate.resolve().parent
+            if project_arg and not str(issue.get("project") or "").strip():
+                issue["project"] = project_arg
+        else:
+            # 位置参数不是文件 → 视为自然语言问题描述
+            issue = issue_from_text(issue_arg, project_arg)
+            issue_source_label = "natural-language"
+    else:
+        return {
+            "status": STATUS_ERROR,
+            "message": "需要提供 issue JSON 路径，或用 --text 传入自然语言问题描述",
+            "data": None,
+        }
 
     project_target = str(issue.get("project") or "").strip()
-    project_root, project_name = resolve_target(project_target, base_dir=issue_path.parent)
+    project_root, project_name = resolve_target(project_target, base_dir=base_dir)
     project_display = project_name or project_root.name
 
     memory = load_project_memory(project_root)
@@ -700,7 +741,7 @@ def run(issue_arg: str, dry_run: bool) -> dict[str, Any]:
         "data": {
             "project": project_display,
             "project_root": rel_path(project_root, ROOT),
-            "issue_source": rel_path(issue_path, ROOT),
+            "issue_source": issue_source_label,
             "dry_run": dry_run,
             "context_sources": context.get("sources") or [],
             "memory_source": memory_source,
@@ -722,19 +763,22 @@ def main() -> None:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 用途:
-  读取 issue JSON、项目上下文和项目 memory，先做 triage 再输出双层修复选项。
+  读取 issue（JSON 文件或自然语言描述）、项目上下文和项目 memory，先做 triage 再输出双层修复选项。
 
 示例:
   python3 .claude/tools/fix/run.py skill-tests/fixtures/fix/repro-issue.json --json --dry-run
-  python3 .claude/tools/fix/run.py skill-tests/fixtures/fix/sparse-issue.json --json
+  python3 .claude/tools/fix/run.py --text "router 模块疑似有空指针 bug" --json --dry-run
+  python3 .claude/tools/fix/run.py "calibration 标定结果异常" --json
 """,
     )
-    parser.add_argument("issue", help="issue JSON 路径")
+    parser.add_argument("issue", nargs="?", help="issue JSON 路径；也可直接写自然语言问题描述（非文件时按 NL 处理）")
+    parser.add_argument("--text", "-t", help="自然语言问题描述（无需先写 issue JSON）")
+    parser.add_argument("--project", help="目标项目名或路径（自然语言模式下指定项目；缺省回退到当前激活项目）")
     parser.add_argument("--json", action="store_true", help="输出机器可解析 JSON")
     parser.add_argument("--dry-run", action="store_true", help="只输出 triage/option 结果，不执行写操作")
     args = parser.parse_args()
 
-    result = run(args.issue, args.dry_run)
+    result = run(args.issue, args.dry_run, text=args.text, project_arg=args.project)
     out(result, args.json)
     if result.get("status") == STATUS_ERROR:
         sys.exit(1)

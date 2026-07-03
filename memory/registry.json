@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-05-14T10:43:54.024672",
+  "generated_at": "2026-07-03T17:47:50.766336",
   "framework_root": "/media/ptn/748095058094CECC/workspace/linguozhu/projects/agent_team/DEV_SDD_Framework",
   "entries": [
     {
@@ -18,7 +18,7 @@
       "version": "",
       "recommended": true,
       "created": "",
-      "last_updated": "2026-05-13"
+      "last_updated": "2026-06-02"
     },
     {
       "id": "context-probe",
@@ -72,7 +72,7 @@
       "version": "",
       "recommended": true,
       "created": "",
-      "last_updated": "2026-05-13"
+      "last_updated": "2026-06-02"
     },
     {
       "id": "doc-template",
@@ -89,7 +89,7 @@
       "version": "",
       "recommended": true,
       "created": "",
-      "last_updated": "2026-05-14"
+      "last_updated": "2026-06-02"
     },
     {
       "id": "memory-update",
@@ -101,6 +101,7 @@
         "green",
         "memory",
         "skill",
+        "agent",
         "候选",
         "规则",
         "bug",
@@ -110,7 +111,7 @@
       "version": "",
       "recommended": true,
       "created": "",
-      "last_updated": "2026-05-14"
+      "last_updated": "2026-06-02"
     },
     {
       "id": "observe-verify",
@@ -136,7 +137,7 @@
       "version": "",
       "recommended": true,
       "created": "",
-      "last_updated": "2026-05-13"
+      "last_updated": "2026-06-02"
     },
     {
       "id": "prompt-policy",
@@ -156,7 +157,7 @@
       "version": "",
       "recommended": true,
       "created": "",
-      "last_updated": "2026-05-14"
+      "last_updated": "2026-06-02"
     },
     {
       "id": "sub-agent-isolation",
@@ -174,7 +175,7 @@
       "version": "",
       "recommended": true,
       "created": "",
-      "last_updated": "2026-05-13"
+      "last_updated": "2026-06-02"
     },
     {
       "id": "tdd-cycle",
@@ -200,7 +201,7 @@
       "version": "",
       "recommended": true,
       "created": "",
-      "last_updated": "2026-05-13"
+      "last_updated": "2026-06-02"
     },
     {
       "id": "validate-output",
@@ -224,7 +225,7 @@
       "version": "",
       "recommended": true,
       "created": "",
-      "last_updated": "2026-05-13"
+      "last_updated": "2026-06-02"
     },
     {
       "id": "challenge-gate",
@@ -246,7 +247,7 @@
       "version": "",
       "recommended": true,
       "created": "",
-      "last_updated": "2026-05-14"
+      "last_updated": "2026-06-02"
     },
     {
       "id": "context-budget",
@@ -266,7 +267,7 @@
       "version": "",
       "recommended": true,
       "created": "",
-      "last_updated": "2026-05-13"
+      "last_updated": "2026-06-02"
     },
     {
       "id": "hook-observer",
@@ -294,7 +295,7 @@
       "version": "",
       "recommended": true,
       "created": "",
-      "last_updated": "2026-05-13"
+      "last_updated": "2026-06-02"
     },
     {
       "id": "network-guard",
@@ -313,7 +314,7 @@
       "version": "",
       "recommended": true,
       "created": "",
-      "last_updated": "2026-05-13"
+      "last_updated": "2026-06-02"
     },
     {
       "id": "permission-auditor",
@@ -331,7 +332,7 @@
       "version": "",
       "recommended": true,
       "created": "",
-      "last_updated": "2026-05-14"
+      "last_updated": "2026-06-02"
     },
     {
       "id": "post-green",
@@ -354,7 +355,7 @@
       "version": "",
       "recommended": true,
       "created": "",
-      "last_updated": "2026-05-13"
+      "last_updated": "2026-06-02"
     },
     {
       "id": "session-snapshot",
@@ -374,7 +375,7 @@
       "version": "",
       "recommended": true,
       "created": "",
-      "last_updated": "2026-05-14"
+      "last_updated": "2026-06-02"
     },
     {
       "id": "stuck-detector",
@@ -397,7 +398,7 @@
       "version": "",
       "recommended": true,
       "created": "",
-      "last_updated": "2026-05-13"
+      "last_updated": "2026-06-02"
     },
     {
       "id": "test-sync",
@@ -414,10 +415,10 @@
       "version": "",
       "recommended": true,
       "created": "",
-      "last_updated": "2026-05-13"
+      "last_updated": "2026-06-02"
     },
     {
-      "id": "agents",
+      "id": "agent-auditor",
       "type": "agent",
       "path": ".claude/agents/agent-auditor.md",
       "title": "Agent-Auditor",
@@ -436,7 +437,497 @@
       "version": "",
       "recommended": true,
       "created": "",
-      "last_updated": "2026-05-13"
+      "last_updated": "2026-07-03"
+    },
+    {
+      "id": "challenger",
+      "type": "agent",
+      "path": ".claude/agents/challenger.md",
+      "title": "Challenger",
+      "tags": [
+        "red",
+        "green",
+        "memory",
+        "hook",
+        "agent",
+        "规则",
+        "测试",
+        "refactor",
+        "validate"
+      ],
+      "version": "",
+      "recommended": true,
+      "created": "",
+      "last_updated": "2026-06-02"
+    },
+    {
+      "id": "implementer",
+      "type": "agent",
+      "path": ".claude/agents/implementer.md",
+      "title": "Implementer",
+      "tags": [
+        "tdd",
+        "red",
+        "green",
+        "memory",
+        "hook",
+        "skill",
+        "agent",
+        "网络",
+        "测试",
+        "bug",
+        "refactor",
+        "validate"
+      ],
+      "version": "",
+      "recommended": true,
+      "created": "",
+      "last_updated": "2026-07-03"
+    },
+    {
+      "id": "memory-keeper",
+      "type": "agent",
+      "path": ".claude/agents/memory-keeper.md",
+      "title": "Memory Keeper",
+      "tags": [
+        "memory",
+        "hook",
+        "skill",
+        "agent",
+        "候选"
+      ],
+      "version": "",
+      "recommended": true,
+      "created": "",
+      "last_updated": "2026-06-02"
+    },
+    {
+      "id": "meta-skill-agent",
+      "type": "agent",
+      "path": ".claude/agents/meta-skill-agent.md",
+      "title": "Meta-Skill Agent",
+      "tags": [
+        "socket",
+        "asyncio",
+        "aiohttp",
+        "websocket",
+        "http",
+        "tdd",
+        "red",
+        "memory",
+        "hook",
+        "skill",
+        "agent",
+        "候选",
+        "规则",
+        "测试",
+        "bug",
+        "validate"
+      ],
+      "version": "",
+      "recommended": true,
+      "created": "",
+      "last_updated": "2026-07-03"
+    },
+    {
+      "id": "planner",
+      "type": "agent",
+      "path": ".claude/agents/planner.md",
+      "title": "Planner",
+      "tags": [
+        "tdd",
+        "hook",
+        "skill",
+        "agent"
+      ],
+      "version": "",
+      "recommended": true,
+      "created": "",
+      "last_updated": "2026-06-02"
+    },
+    {
+      "id": "reviewer",
+      "type": "agent",
+      "path": ".claude/agents/reviewer.md",
+      "title": "Reviewer",
+      "tags": [
+        "memory",
+        "bytes",
+        "str",
+        "hook",
+        "skill",
+        "agent",
+        "候选",
+        "网络",
+        "测试",
+        "validate"
+      ],
+      "version": "",
+      "recommended": true,
+      "created": "",
+      "last_updated": "2026-06-02"
+    },
+    {
+      "id": "context-probe",
+      "type": "tool",
+      "path": ".claude/tools/context-probe/run.py",
+      "title": "run",
+      "tags": [
+        "socket",
+        "recv",
+        "send",
+        "asyncio",
+        "aiohttp",
+        "websocket",
+        "http",
+        "tcp",
+        "tdd",
+        "red",
+        "memory",
+        "bytes",
+        "str",
+        "threading",
+        "hook",
+        "skill",
+        "agent",
+        "候选",
+        "规则",
+        "网络"
+      ],
+      "version": "",
+      "recommended": true,
+      "created": "",
+      "last_updated": "2026-06-02"
+    },
+    {
+      "id": "dev-sdd-dashboard",
+      "type": "tool",
+      "path": ".claude/tools/dev-sdd-dashboard/run.py",
+      "title": "run",
+      "tags": [
+        "red",
+        "memory",
+        "str",
+        "skill"
+      ],
+      "version": "",
+      "recommended": true,
+      "created": "",
+      "last_updated": "2026-06-02"
+    },
+    {
+      "id": "doc-template",
+      "type": "tool",
+      "path": ".claude/tools/doc-template/run.py",
+      "title": "仅登记带 frontmatter id 的正式 doc-template；无 frontmatter 的文件",
+      "tags": [
+        "red",
+        "str",
+        "agent",
+        "规则",
+        "bug",
+        "validate"
+      ],
+      "version": "",
+      "recommended": true,
+      "created": "",
+      "last_updated": "2026-07-03"
+    },
+    {
+      "id": "fix",
+      "type": "tool",
+      "path": ".claude/tools/fix/run.py",
+      "title": "结构化 issue JSON",
+      "tags": [
+        "red",
+        "memory",
+        "str",
+        "skill",
+        "规则",
+        "测试",
+        "诊断",
+        "bug",
+        "validate"
+      ],
+      "version": "",
+      "recommended": true,
+      "created": "",
+      "last_updated": "2026-07-03"
+    },
+    {
+      "id": "framework-health",
+      "type": "tool",
+      "path": ".claude/tools/framework-health/run.py",
+      "title": "run",
+      "tags": [
+        "red",
+        "memory",
+        "str",
+        "skill",
+        "validate"
+      ],
+      "version": "",
+      "recommended": true,
+      "created": "",
+      "last_updated": "2026-06-02"
+    },
+    {
+      "id": "init",
+      "type": "tool",
+      "path": ".claude/tools/init/run.py",
+      "title": "run",
+      "tags": [
+        "tdd",
+        "red",
+        "memory",
+        "str",
+        "skill",
+        "agent",
+        "规则",
+        "测试",
+        "bug",
+        "validate"
+      ],
+      "version": "",
+      "recommended": true,
+      "created": "",
+      "last_updated": "2026-06-02"
+    },
+    {
+      "id": "memory-conflicts",
+      "type": "tool",
+      "path": ".claude/tools/memory-conflicts/run.py",
+      "title": "INDEX.md and other structural files are unique by path, not by basename.",
+      "tags": [
+        "red",
+        "memory",
+        "str"
+      ],
+      "version": "",
+      "recommended": true,
+      "created": "",
+      "last_updated": "2026-06-02"
+    },
+    {
+      "id": "memory-search",
+      "type": "tool",
+      "path": ".claude/tools/memory-search/run.py",
+      "title": "run",
+      "tags": [
+        "http",
+        "red",
+        "memory",
+        "bytes",
+        "str"
+      ],
+      "version": "",
+      "recommended": true,
+      "created": "",
+      "last_updated": "2026-06-02"
+    },
+    {
+      "id": "memory-usage",
+      "type": "tool",
+      "path": ".claude/tools/memory-usage/run.py",
+      "title": "run",
+      "tags": [
+        "red",
+        "memory",
+        "str"
+      ],
+      "version": "",
+      "recommended": true,
+      "created": "",
+      "last_updated": "2026-06-02"
+    },
+    {
+      "id": "model-behavior",
+      "type": "tool",
+      "path": ".claude/tools/model-behavior/run.py",
+      "title": "run",
+      "tags": [
+        "http",
+        "memory",
+        "str",
+        "skill"
+      ],
+      "version": "",
+      "recommended": true,
+      "created": "",
+      "last_updated": "2026-06-02"
+    },
+    {
+      "id": "prompt-policy",
+      "type": "tool",
+      "path": ".claude/tools/prompt-policy/run.py",
+      "title": "run",
+      "tags": [
+        "red",
+        "memory",
+        "str",
+        "候选",
+        "规则",
+        "测试",
+        "refactor",
+        "validate"
+      ],
+      "version": "",
+      "recommended": true,
+      "created": "",
+      "last_updated": "2026-06-02"
+    },
+    {
+      "id": "redefine",
+      "type": "tool",
+      "path": ".claude/tools/redefine/run.py",
+      "title": "run",
+      "tags": [
+        "red",
+        "str",
+        "skill",
+        "bug"
+      ],
+      "version": "",
+      "recommended": true,
+      "created": "",
+      "last_updated": "2026-06-02"
+    },
+    {
+      "id": "review-cockpit",
+      "type": "tool",
+      "path": ".claude/tools/review-cockpit/run.py",
+      "title": "run",
+      "tags": [
+        "memory",
+        "str",
+        "skill"
+      ],
+      "version": "",
+      "recommended": true,
+      "created": "",
+      "last_updated": "2026-06-02"
+    },
+    {
+      "id": "review-doc",
+      "type": "tool",
+      "path": ".claude/tools/review-doc/run.py",
+      "title": "run",
+      "tags": [
+        "tdd",
+        "red",
+        "str",
+        "规则",
+        "测试"
+      ],
+      "version": "",
+      "recommended": true,
+      "created": "",
+      "last_updated": "2026-06-02"
+    },
+    {
+      "id": "start-work",
+      "type": "tool",
+      "path": ".claude/tools/start-work/run.py",
+      "title": "环境状态",
+      "tags": [
+        "red",
+        "memory",
+        "str",
+        "agent",
+        "validate"
+      ],
+      "version": "",
+      "recommended": true,
+      "created": "",
+      "last_updated": "2026-06-02"
+    },
+    {
+      "id": "update-todo",
+      "type": "tool",
+      "path": ".claude/tools/update-todo/run.py",
+      "title": "run",
+      "tags": [
+        "red",
+        "str",
+        "skill",
+        "validate"
+      ],
+      "version": "",
+      "recommended": true,
+      "created": "",
+      "last_updated": "2026-06-02"
+    },
+    {
+      "id": "plan-tracker",
+      "type": "tool",
+      "path": ".claude/tools/plan-tracker/tracker.py",
+      "title": "复用统一的项目根解析逻辑（与 start-work / workflow_cli_common 保持一致），",
+      "tags": [
+        "red",
+        "str",
+        "hook",
+        "agent",
+        "validate"
+      ],
+      "version": "",
+      "recommended": true,
+      "created": "",
+      "last_updated": "2026-07-03"
+    },
+    {
+      "id": "skill-tracker",
+      "type": "tool",
+      "path": ".claude/tools/skill-tracker/tracker.py",
+      "title": "查看可临时激活的候选（medium+ confidence）",
+      "tags": [
+        "http",
+        "tdd",
+        "red",
+        "memory",
+        "str",
+        "hook",
+        "skill",
+        "agent",
+        "候选",
+        "规则",
+        "validate"
+      ],
+      "version": "",
+      "recommended": true,
+      "created": "",
+      "last_updated": "2026-06-02"
+    },
+    {
+      "id": "sdd-cli",
+      "type": "tool",
+      "path": ".claude/tools/sdd-cli/cli.py",
+      "title": "按关键词搜索",
+      "tags": [
+        "socket",
+        "recv",
+        "send",
+        "asyncio",
+        "aiohttp",
+        "websocket",
+        "http",
+        "tcp",
+        "tdd",
+        "red",
+        "green",
+        "memory",
+        "bytes",
+        "str",
+        "threading",
+        "concurrent",
+        "hook",
+        "skill",
+        "agent",
+        "候选"
+      ],
+      "version": "",
+      "recommended": true,
+      "created": "",
+      "last_updated": "2026-07-03"
     },
     {
       "id": "MEM_F_I_001",
@@ -454,7 +945,7 @@
       "version": "",
       "recommended": true,
       "created": "2026-03-03",
-      "last_updated": "2026-05-13"
+      "last_updated": "2026-06-02"
     },
     {
       "id": "MEM_F_I_002",
@@ -474,7 +965,7 @@
       "version": "",
       "recommended": true,
       "created": "2026-03-03",
-      "last_updated": "2026-05-13"
+      "last_updated": "2026-06-02"
     },
     {
       "id": "MEM_F_I_003",
@@ -496,7 +987,7 @@
       "version": "",
       "recommended": true,
       "created": "2026-03-03",
-      "last_updated": "2026-05-13"
+      "last_updated": "2026-06-02"
     },
     {
       "id": "MEM_F_I_004",
@@ -515,7 +1006,7 @@
       "version": "",
       "recommended": true,
       "created": "2026-03-03",
-      "last_updated": "2026-05-13"
+      "last_updated": "2026-06-02"
     },
     {
       "id": "MEM_F_I_005",
@@ -532,7 +1023,7 @@
       "version": "",
       "recommended": true,
       "created": "2026-03-03",
-      "last_updated": "2026-05-13"
+      "last_updated": "2026-06-02"
     },
     {
       "id": "MEM_F_I_006",
@@ -551,7 +1042,7 @@
       "version": "",
       "recommended": true,
       "created": "2026-03-03",
-      "last_updated": "2026-05-13"
+      "last_updated": "2026-06-02"
     },
     {
       "id": "MEM_F_I_007",
@@ -567,7 +1058,7 @@
       "version": "",
       "recommended": true,
       "created": "2026-03-03",
-      "last_updated": "2026-05-13"
+      "last_updated": "2026-06-02"
     },
     {
       "id": "MEM_F_C_001",
@@ -576,7 +1067,6 @@
       "title": "校验器必须先用参考输出自测（应 PASS）再交付",
       "tags": [
         "http",
-        "red",
         "规则",
         "bug",
         "validate"
@@ -584,7 +1074,7 @@
       "version": "",
       "recommended": true,
       "created": "2026-03-03",
-      "last_updated": "2026-05-13"
+      "last_updated": "2026-07-03"
     },
     {
       "id": "MEM_F_C_002",
@@ -603,7 +1093,7 @@
       "version": "",
       "recommended": true,
       "created": "2026-03-03",
-      "last_updated": "2026-05-13"
+      "last_updated": "2026-07-03"
     },
     {
       "id": "MEM_F_C_003",
@@ -623,7 +1113,7 @@
       "version": "",
       "recommended": true,
       "created": "2026-03-03",
-      "last_updated": "2026-05-13"
+      "last_updated": "2026-07-03"
     },
     {
       "id": "MEM_F_C_004",
@@ -642,7 +1132,7 @@
       "version": "",
       "recommended": true,
       "created": "2026-03-03",
-      "last_updated": "2026-05-13"
+      "last_updated": "2026-06-02"
     },
     {
       "id": "MEM_F_C_005",
@@ -652,7 +1142,6 @@
       "tags": [
         "recv",
         "http",
-        "red",
         "bytes",
         "规则",
         "validate"
@@ -660,7 +1149,7 @@
       "version": "",
       "recommended": true,
       "created": "2026-03-03",
-      "last_updated": "2026-05-13"
+      "last_updated": "2026-07-03"
     },
     {
       "id": "concurrency",
@@ -680,7 +1169,7 @@
       "version": "",
       "recommended": true,
       "created": "",
-      "last_updated": "2026-05-13"
+      "last_updated": "2026-06-02"
     },
     {
       "id": "http",
@@ -696,7 +1185,7 @@
       "version": "",
       "recommended": true,
       "created": "",
-      "last_updated": "2026-05-13"
+      "last_updated": "2026-06-02"
     },
     {
       "id": "tdd_patterns",
@@ -719,7 +1208,7 @@
       "version": "",
       "recommended": true,
       "created": "",
-      "last_updated": "2026-05-13"
+      "last_updated": "2026-06-02"
     },
     {
       "id": "type_safety",
@@ -740,7 +1229,7 @@
       "version": "",
       "recommended": true,
       "created": "",
-      "last_updated": "2026-05-13"
+      "last_updated": "2026-06-02"
     }
   ]
 }

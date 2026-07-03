@@ -40,7 +40,7 @@ Step 3: 输出确认语：
 
 ```
 PROJECT: agentplatform
-PROJECT_PATH: projects/agentplatform_workspace/agentplatform
+PROJECT_PATH: projects/agentplatform_workspace/lument_server/agentplatform
 ```
 
 > 切换项目：修改上方 PROJECT 字段，或使用 /project:switch

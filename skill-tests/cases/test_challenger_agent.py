@@ -162,7 +162,9 @@ def test_challenge_gate_record_path_uses_project_path_for_workspace_project():
         "--evidence", "pytest passed",
     )
     assert data["triggered"] is True
-    assert data["record_path"] == "projects/agentplatform_workspace/agentplatform/memory/challenges/workspace-path-check.md"
+    # 从 AGENTS.md 派生期望路径（source-of-truth），避免硬编码在 PROJECT_PATH 变化后再次陈旧化
+    expected_root = active_project_root().relative_to(FRAMEWORK_ROOT).as_posix()
+    assert data["record_path"] == f"{expected_root}/memory/challenges/workspace-path-check.md"
 
 
 def test_framework_entrypoints_reference_challenger():

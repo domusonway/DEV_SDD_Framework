@@ -151,12 +151,59 @@ def test_sparse_issue_requires_more_context():
         shutil.rmtree(project_root.parent, ignore_errors=True)
 
 
+def test_natural_language_issue_via_text_flag():
+    """自然语言入口（--text）：无需 issue JSON 即可 triage，输出双层选项且不幻觉补丁。"""
+    project_root = clone_fixture("repro-project")
+    try:
+        res = run_tool("--text", "calibration 标定结果异常，疑似有 bug", "--project", str(project_root), "--json", "--dry-run")
+        assert res.returncode == 0, f"NL --text 失败: {res.stderr}"
+        data = parse_json_output(res, "fix NL text")
+        payload = data["data"]
+        assert payload.get("issue_source") == "natural-language", "NL 模式应标记 issue_source=natural-language"
+        assert payload.get("project") == project_root.name
+        options = payload.get("options") or {}
+        assert list(options.keys()) == ["minimal_change", "comprehensive_change"], "NL 模式也应固定输出双层选项"
+        assert_option_shape(options["minimal_change"])
+        assert_option_shape(options["comprehensive_change"])
+        triage = payload.get("triage") or {}
+        # NL 缺少复现信息 → 低置信度降级并请求补齐，而非幻觉式补丁
+        assert triage.get("confidence") == "low"
+        assert "reproduction_steps" in (triage.get("missing_context") or [])
+    finally:
+        shutil.rmtree(project_root.parent, ignore_errors=True)
+
+
+def test_natural_language_issue_via_positional_text():
+    """位置参数不是存在的文件时，应按自然语言问题描述处理（而非报文件不存在）。"""
+    project_root = clone_fixture("repro-project")
+    try:
+        res = run_tool("修复 router 模块的空指针问题", "--project", str(project_root), "--json", "--dry-run")
+        assert res.returncode == 0, f"NL 位置参数失败: {res.stderr}"
+        data = parse_json_output(res, "fix NL positional")
+        assert data["data"].get("issue_source") == "natural-language", "非文件位置参数应按自然语言处理"
+        assert list((data["data"].get("options") or {}).keys()) == ["minimal_change", "comprehensive_change"]
+    finally:
+        shutil.rmtree(project_root.parent, ignore_errors=True)
+
+
+def test_missing_input_reports_clean_error():
+    """既无 issue 路径也无 --text 时，应返回干净的错误信封（退出码 1），而非崩溃。"""
+    res = run_tool("--json")
+    data = parse_json_output(res, "fix no input")
+    assert data["status"] == "error"
+    assert res.returncode == 1
+    assert "自然语言" in data["message"] or "issue" in data["message"].lower()
+
+
 if __name__ == "__main__":
     tests = [
         test_tool_exists_and_syntax_ok,
         test_help_contains_usage_and_example,
         test_reproducible_issue_emits_dual_repair_options,
         test_sparse_issue_requires_more_context,
+        test_natural_language_issue_via_text_flag,
+        test_natural_language_issue_via_positional_text,
+        test_missing_input_reports_clean_error,
     ]
     failed = 0
     for t in tests:

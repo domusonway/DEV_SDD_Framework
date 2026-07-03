@@ -16,6 +16,7 @@ __pycache__/
 dist/
 build/
 .eggs/
+uploads/
 
 # 测试报告（本地生成，不提交）
 skill-tests/reports/*.json

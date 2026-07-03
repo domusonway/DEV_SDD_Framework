@@ -31,12 +31,12 @@ python3 .claude/agents/agent-auditor-scan.py ${PROJECT}
 |---------|-----------|---------|
 | 缺少返回类型注解 | implementer | GREEN 自查必须覆盖类型注解 |
 | 测试数量不足 | implementer | 测试数 ≥ SPEC 行为规格数 |
-| PLAN.md 未同步 | implementer | UPDATE-PLAN 必须确认 PLAN 已勾选 |
+| plan.json 未同步 | implementer | UPDATE-PLAN 必须用 `plan-tracker complete` 更新 plan.json（PLAN.md 自动派生） |
 | 接口与 SPEC 不一致 | implementer | VALIDATE 必须调用 check_contract.py |
 | 复审报告格式不完整 | reviewer | 报告必须包含 hook 观察和 test-sync 章节 |
 
-### 维度2：PLAN.md 中 `[~]` 跳过模式
-分析 plan.json 中 `state=skipped` 的模块，识别共同技术领域：
+### 维度2：plan.json 中 `state=skipped` 跳过模式
+分析 plan.json 中 `state=skipped` 的模块（PLAN.md 派生显示 `- [~]`），识别共同技术领域：
 - ≥2 个跳过模块涉及同一技术领域 → `planner_risk_dimension_missing` 候选
 
 ### 维度3：session 中断模式

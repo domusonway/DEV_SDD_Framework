@@ -4,7 +4,8 @@ title: 校验器必须先用参考输出自测（应 PASS）再交付
 severity: CRITICAL
 created: 2026-03-03
 confidence: high
-validated_by: sdd-tinyhttpd, mini-redis, sdd-chatserver
+validated_by: sdd-tinyhttpd
+validation_note: 早期在 sdd-tinyhttpd 单项目回归实验中确立；原记录曾列出未落盘、无法核验的项目名（已更正为可核验证据），≥3 项目跨项目复验待补。
 ---
 
 ## 规则

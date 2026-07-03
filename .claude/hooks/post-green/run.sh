@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -eu
+set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FRAMEWORK_ROOT="$(cd "${SCRIPT_DIR}/../../../" && pwd)"
@@ -16,9 +16,13 @@ echo "=== POST-GREEN 验证 ==="
 echo ""
 
 echo "📋 Step 1: 最终测试状态"
-if python3 -m pytest tests/ -v --tb=short 2>&1 | tail -5; then
+PYTEST_OUTPUT="$(mktemp)"
+trap 'rm -f "$PYTEST_OUTPUT"' EXIT
+if python3 -m pytest tests/ -v --tb=short >"$PYTEST_OUTPUT" 2>&1; then
+    tail -5 "$PYTEST_OUTPUT"
     echo "✅ 所有测试 PASS"
 else
+    tail -40 "$PYTEST_OUTPUT"
     echo "❌ 仍有测试失败，post-green 中止"
     exit 1
 fi

@@ -52,14 +52,14 @@
 - 任意模块完成 GREEN（pytest 全部 PASS）
 - 完成 SPEC.md 或接口设计
 - 解决了连续失败 2 次以上的 Bug
-- 完成 PLAN.md 的一个批次
+- 完成 plan.json 的一个批次
 
 追加格式：
 ```
 [CHECKPOINT]
 时间: <HH:MM>
 事件: <触发事件的一句话描述>
-状态: <当前模块/测试/PLAN 进度>
+状态: <当前模块/测试/plan.json 进度>
 [/CHECKPOINT]
 ```
 
@@ -92,7 +92,7 @@
 
 1. 跳过 RED 阶段直接写实现代码
 2. 修改测试断言或 skip 测试让测试通过
-3. 在 PLAN.md 未更新（仍有 `- [ ]`）时宣布模块完成
+3. 在 plan.json 未更新（模块 `state≠completed`，用 `plan-tracker validate` 校验）时宣布模块完成
 4. 在 memory/INDEX.md 未更新时进入下一批次
 5. 写完含 socket/recv/send 代码后跳过 network-guard 检查
 

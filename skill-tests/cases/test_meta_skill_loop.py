@@ -59,7 +59,8 @@ def test_agent_auditor_exists():
 
 def test_agent_auditor_has_three_dimensions():
     content = AGENT_AUDITOR.read_text()
-    for dim in ["Reviewer", "PLAN.md", "session 中断"]:
+    # 维度2 以 plan.json（权威源）为准，PLAN.md 仅为派生视图
+    for dim in ["Reviewer", "plan.json", "session 中断"]:
         assert dim in content, f"agent-auditor 缺少维度：{dim}"
 
 
